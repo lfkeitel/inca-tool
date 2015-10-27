@@ -1,0 +1,42 @@
+# Set variables
+set hostname [lindex $argv 2]
+set username [lindex $argv 3]
+set password [lindex $argv 4]
+set enablepassword [lindex $argv 5]
+
+# Start telnet session
+spawn telnet $hostname
+
+# Allow this script to handle ssh connection issues
+expect {
+	timeout { send_error "$hostname Timeout Exceeded - Check Host\n"; exit 1 }
+	eof { send_error "$hostname Telnet connection to host failed\n"; exit 1 }
+    "*refused" { send_error "$hostname Telnet connection refused\n"; exit 1 }
+	"*sername:" {
+		send "$username\n"
+	}
+}
+
+expect {
+	"*assword:" {
+		send "$password\n"
+	}
+}
+
+# If we're not already in enable mode, get us there
+expect {
+	default { send_error "$hostname Enable Mode Failed - Check Password\n"; exit 1 }
+	"*#" {}
+	"*>" {
+		send "enable\n"
+		expect "*assword"
+		send "$enablepassword\n"
+		expect {
+			"% Access denied" {
+				send_error "$hostname Enable Mode Failed - Check Password\n"
+				exit 1
+			}
+			"*#"
+		}
+	}
+}

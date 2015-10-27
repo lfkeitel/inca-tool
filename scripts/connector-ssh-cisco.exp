@@ -1,0 +1,35 @@
+# Set variables
+set hostname [lindex $argv 2]
+set username [lindex $argv 3]
+set password [lindex $argv 4]
+set enablepassword [lindex $argv 5]
+
+# Don't check keys
+spawn ssh -o StrictHostKeyChecking=no $username\@$hostname
+
+# Allow this script to handle ssh connection issues
+expect {
+    timeout { send_error "$hostname Timeout exceeded\n"; exit 1 }
+    eof { send_error "$hostname SSH connection to host failed\n"; exit 1 }
+    "*refused" { send_error "$hostname SSH connection refused\n"; exit 1 }
+    "*yes/no*" {
+        send "yes\n"
+    }
+    "*#" {}
+    "*assword:" {
+        send "$password\n"
+    }
+}
+
+# If we're not already in enable mode, get us there
+expect {
+    default { send_error "$hostname Enable mode login failed - Check password\n"; exit 1 }
+    "*assword:" { send_error "$hostname SSH login failed - Check password\n"; exit 1 }
+    "*#" {}
+    "*>" {
+        send "enable\n"
+        expect "*assword"
+        send "$enablepassword\n"
+        expect "*#"
+    }
+}
