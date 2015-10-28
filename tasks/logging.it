@@ -1,0 +1,33 @@
+# Task - Doesn't really matter, for information purposes
+description: Add logging to 10.254.68.230 (only shown when running, doesn't affect actual task execution)
+author: Lee Keitel
+date: 10/27/2015
+version: 1.0.0
+
+# Filter
+device list: (path to Ica v2 device list)
+manufacturer: Cisco (can be "all" or "*")
+group: all (can be "all" or "*")
+filter: cisco:* (combined manufacturer and group settings)
+
+# Manual script run
+script: (script filename) (arguments are protocol,brand,address,username,password,enablepw)
+additional args: (semicolon separated list of arguments, whitespace stripped)
+
+# Credentials
+username: (username)
+password: (password)
+enable password: (enable) (Cisco only)
+
+# List of commands to execute - special commands are prefixed with _
+# commands must come at the end of the file
+commands:
+    command1
+    command2
+    command3
+    command4
+    command5
+
+# Comments
+# script and commands can't be used in the same task, an error should be shown to user
+# anything in the () are designer comments, that don't compile
