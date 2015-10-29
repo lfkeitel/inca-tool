@@ -71,8 +71,8 @@ func filterDevices(devices []host, filter string) []host {
 	return hosts
 }
 
-func getArguments(host host, task *parser.TaskFile) []string {
-	argList := make([]string, 6)
+func getArguments(host host, task *parser.TaskFile, eargs []string) []string {
+	argList := make([]string, 6+len(eargs))
 	argList[0] = host.method
 	argList[1] = host.manufacturer
 	argList[2] = host.address
@@ -82,6 +82,10 @@ func getArguments(host host, task *parser.TaskFile) []string {
 		argList[5] = task.EnablePassword
 	} else {
 		argList[5] = task.Password
+	}
+
+	for i, arg := range eargs {
+		argList[i+6] = arg
 	}
 	return argList
 }

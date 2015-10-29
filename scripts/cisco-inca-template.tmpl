@@ -2,7 +2,7 @@
 
 set protocol [lindex $argv 0]
 set man [lindex $argv 1]
-set connector [file join [file dirname [info script]] connector-$protocol-$man.exp]
+set connector [file join [file dirname [info script]] .. scripts connector-$protocol-$man.exp]
 
 if {$man != "cisco"} {
     send_error "This script is for Cisco devices only\n"
@@ -16,20 +16,6 @@ if {[file exists $connector]} {
     exit 1
 }
 
-send "conf t\n"
-expect "*#"
-
-send "interface Vlan2\n"
-expect "*#"
-
-send "ip access-group 42 in\n"
-expect "*#"
-
-send "end\n"
-expect "*#"
-
-send "wr mem\n"
-expect "*#"
-
+# {{content}}
 send "exit\n"
 exit

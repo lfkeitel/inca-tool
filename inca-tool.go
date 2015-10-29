@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	parser "github.com/dragonrider23/inca-tool/taskfileparser"
@@ -14,6 +13,7 @@ var (
 	dryRun        bool   // flag
 	testTaskParse string // flag
 	verbose       bool   // flag
+	debug         bool   // flag
 
 	taskFilename string
 )
@@ -33,9 +33,10 @@ type config struct {
 }
 
 func init() {
-	flag.BoolVar(&dryRun, "d", false, "Only list the devices that would be affected, doesn't run any scripts")
+	flag.BoolVar(&dryRun, "d", false, "Do everything up to but not including, actually running the script. Also lists affected devices")
 	flag.StringVar(&testTaskParse, "test", "", "Test a task file for validity")
 	flag.BoolVar(&verbose, "v", false, "Enable verbose output")
+	flag.BoolVar(&debug, "debug", false, "Enable debug mode")
 }
 
 func main() {
@@ -73,42 +74,35 @@ func main() {
 		os.Exit(1)
 	}
 
-	task.Script, _ = filepath.Abs(task.Script)
-
 	hosts, err := loadDevices(task.DeviceList)
 	if err != nil {
-		fmt.Println("Error loading devices")
+		fmt.Printf("Error loading devices: %s\n", err.Error())
 		os.Exit(1)
 	}
 
 	hosts = filterDevices(hosts, task.Filter)
 
-	if !dryRun {
-		var err error
-		switch task.Mode {
-		case "script":
-			err = execScriptMode(hosts, task)
-			break
-		case "expect":
-			err = execExpectMode(hosts, task)
-			break
-		case "commands":
-			err = execCommandMode(hosts, task)
-			break
-		}
+	fmt.Printf("Task Information:\n")
+	fmt.Printf("  Name: %s\n", task.Name)
+	fmt.Printf("  Description: %s\n", task.Description)
+	fmt.Printf("  Author: %s\n", task.Author)
+	fmt.Printf("  Last Changed: %s\n", task.Date)
+	fmt.Printf("  Version: %s\n", task.Version)
+	fmt.Printf("  Filter: %s\n\n", task.Filter)
 
-		if err != nil {
-			fmt.Println(err.Error())
-			os.Exit(1)
-		}
-	} else {
+	if err := execute(hosts, task); err != nil {
+		fmt.Printf("Error executing task: %s\n", err.Error())
+		os.Exit(1)
+	}
+
+	if dryRun {
 		fmt.Print("Dry Run\n\n")
 		for _, host := range hosts {
 			fmt.Printf("Name: %s\n", host.name)
 			fmt.Printf("Hostname: %s\n", host.address)
 			fmt.Printf("Manufacturer: %s\n", host.manufacturer)
 			fmt.Printf("Protocol: %s\n", host.method)
-			fmt.Print("---------\n")
+			fmt.Println("---------")
 		}
 	}
 
@@ -118,11 +112,12 @@ func main() {
 }
 
 func checkArguments(task *parser.TaskFile) bool {
-	if task.Mode == "" ||
-		task.Username == "" ||
+	if task.Username == "" ||
 		task.Password == "" ||
 		task.DeviceList == "" ||
-		task.Filter == "" {
+		task.Filter == "" ||
+		(task.Commands == nil &&
+			task.Expects == nil) {
 		return false
 	}
 
@@ -135,8 +130,29 @@ func validateTaskFile(filename string) {
 		fmt.Println(err.Error())
 	} else {
 		if verbose {
-			fmt.Printf("%#v\n", task)
+			fmt.Printf("Task: %+v\n\n", task)
+
+			fmt.Print("----Task Command Blocks----")
+			for _, c := range task.Commands {
+				fmt.Printf("\nCommand block Name: %s\n", c.Name)
+				fmt.Printf("Command block Type: %s\n", c.Type)
+				fmt.Printf("Commands: %v\n", c.Commands)
+				fmt.Println("---------------")
+			}
+
+			fmt.Print("\n----Task Expect Blocks----")
+			for _, e := range task.Expects {
+				fmt.Printf("\nExpect Block Name: %s\nLines: %v\n", e.Name, e.String)
+				fmt.Println("---------------")
+			}
 		}
 		fmt.Println("The task file has no syntax errors.")
 	}
+}
+
+func execute(devices []host, task *parser.TaskFile) error {
+	if _, ok := task.Commands["main"]; !ok {
+		return fmt.Errorf("Main command block not found")
+	}
+	return executeCommand("main", task, devices, debug)
 }

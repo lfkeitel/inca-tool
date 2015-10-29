@@ -1,18 +1,15 @@
 # Task - Doesn't really matter, for information purposes
+name: Cisco logging
 description: Add logging to 10.254.68.230
 author: Lee Keitel
 date: 10/27/2015
 version: 1.0.0
 
 # Filter
-device list: ../devices.conf
+device list: devices.conf
 #manufacturer: Cisco
 #group: All
 filter: cisco:*
-
-# Manual script run
-#script: ../script/runnow.exp
-additional args:
 
 # Credentials
 username: 123
@@ -20,21 +17,29 @@ password: 456
 enable password: 789
 
 # List of commands to execute - special commands are prefixed with _
-#commands:
-#    command0
-#    command1
-#    command2
-#    command3
-#    command4
-#    command5
+# Comments in command blocks must have no indention or they will be parsed
+# as their own command line
+commands: main template=juniper
+    _c second
+    conf t
+    interface Vlan2
+    ip access-group 42 in
+    end
+    wr mem
+    _b juniper-exit-nocommit
+
+commands: second
+    command0
+    command1
+    command2
+    command3
+    _e extra
+    command4
+    command5
 
 # Everything after expect is consumed as raw expect script
-expect:
+expect: extra
 	set name "Lee"
 	send "command\n"
 	expect "thing"
 	send "exit\n"
-
-# Comments
-# script and commands can't be used in the same task, an error should be shown to user
-# anything in the () are designer comments, that don't compile

@@ -13,6 +13,7 @@ import (
 
 // TaskFile represents a parsed task file
 type TaskFile struct {
+	Name        string
 	Description string
 	Author      string
 	Date        string
@@ -24,21 +25,25 @@ type TaskFile struct {
 	Group        string
 	Filter       string
 
-	Script               string
-	AdditionalArgs       string
-	AdditionalArgsParsed []string
-
 	Username       string
 	Password       string
 	EnablePassword string
 
-	Commands          []string
-	commandWhitespace string
-
-	Expect           string
-	expectWhitespace string
+	currentBlock string
+	Commands     map[string]*CommandBlock
+	Expects      map[string]*CommandBlock
 
 	Mode string
+}
+
+// CommandBlock contains all the settings for a block of commands
+type CommandBlock struct {
+	Name     string
+	Type     string
+	Commands []string
+	String   string
+	Template string
+	sigWs    string
 }
 
 const (
@@ -101,13 +106,12 @@ func parse(filename string) (*TaskFile, error) {
 		return nil, err
 	}
 
-	parseAdditionalArgs(task)
-
 	return task, nil
 }
 
 func parseLine(line string, task *TaskFile, lineNum int) error {
 	// Split only on the first colon
+	runningMode = modeRoot
 	parts := strings.SplitN(line, ":", 2)
 
 	if len(parts) != 2 {
@@ -119,76 +123,127 @@ func parseLine(line string, task *TaskFile, lineNum int) error {
 	setting = strings.TrimSpace(setting)
 	settingVal := strings.TrimSpace(parts[1])
 
-	err, end := checkForCollision(setting, task, lineNum)
-	if end {
-		return err
+	switch setting {
+	case "Commands":
+		return parseCommandBlockStart(setting, settingVal, task, lineNum)
+	case "Expect":
+		return parseExpectBlockStart(setting, settingVal, task, lineNum)
 	}
 
 	taskReflect := reflect.ValueOf(task)
 	// struct
 	s := taskReflect.Elem()
-	if s.Kind() == reflect.Struct {
-		// exported field
-		f := s.FieldByName(setting)
-		if f.IsValid() {
-			// A Value can be changed only if it is
-			// addressable and was not obtained by
-			// the use of unexported struct fields.
-			if f.CanSet() {
-				// change value of N
-				if f.Kind() == reflect.String {
-					if f.String() != "" {
-						return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", setting, lineNum)
-					}
-					f.SetString(settingVal)
-				} else if f.Kind() == reflect.Int32 {
-					if f.Int() > 0 {
-						return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", setting, lineNum)
-					}
-
-					i, err := strconv.Atoi(settingVal)
-					if err != nil {
-						return fmt.Errorf("Expected integer on line %d\n", lineNum)
-					}
-					f.SetInt(int64(i))
+	// exported field
+	f := s.FieldByName(setting)
+	if f.IsValid() {
+		// A Value can be changed only if it is
+		// addressable and was not obtained by
+		// the use of unexported struct fields.
+		if f.CanSet() {
+			// change value of N
+			if f.Kind() == reflect.String {
+				if f.String() != "" {
+					return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", setting, lineNum)
 				}
+				f.SetString(settingVal)
+			} else if f.Kind() == reflect.Int32 {
+				if f.Int() > 0 {
+					return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", setting, lineNum)
+				}
+
+				i, err := strconv.Atoi(settingVal)
+				if err != nil {
+					return fmt.Errorf("Expected integer on line %d\n", lineNum)
+				}
+				f.SetInt(int64(i))
 			}
-		} else {
-			return fmt.Errorf("Invalid setting \"%s\". Line %d\n", setting, lineNum)
 		}
+	} else {
+		return fmt.Errorf("Invalid setting \"%s\". Line %d\n", setting, lineNum)
 	}
 
 	return nil
 }
 
-func checkForCollision(setting string, task *TaskFile, lineNum int) (error, bool) {
-	end := false
-	if setting == "Commands" {
-		end = true
-		if task.Script != "" || task.Expect != "" {
-			return fmt.Errorf("Commands cannot be used together with script or expect. Line %d\n", lineNum), end
-		}
-		runningMode = modeCommand
-		task.Mode = "command"
+func parseCommandBlockStart(cmd, opts string, task *TaskFile, lineNum int) error {
+	if task.Commands == nil {
+		task.Commands = make(map[string]*CommandBlock)
 	}
 
-	if setting == "Expect" {
-		end = true
-		if task.Script != "" || len(task.Commands) != 0 {
-			return fmt.Errorf("Expect cannot be used with commands or script. Line %d\n", lineNum), end
-		}
-		runningMode = modeExpect
-		task.Mode = "expect"
+	if opts == "" {
+		return fmt.Errorf("%s blocks must have a name. Line %d\n", cmd, lineNum)
 	}
 
-	if setting == "Script" {
-		if task.Expect != "" || len(task.Commands) != 0 {
-			return fmt.Errorf("Script cannot be used with commands or expect. Line %d\n", lineNum), true
-		}
-		task.Mode = "script"
+	pieces := strings.Split(opts, " ")
+	name := pieces[0]
+
+	_, set := task.Commands[name]
+	if set {
+		return fmt.Errorf("%s block with name '%s' already exists. Line %d\n", cmd, opts, lineNum)
 	}
 
-	return nil, end
+	task.Commands[name] = &CommandBlock{
+		Name: name,
+	}
+
+	if len(pieces) > 1 {
+		for _, setting := range pieces[1:] {
+			parts := strings.Split(setting, "=")
+			if len(parts) < 2 {
+				continue
+			}
+
+			taskReflect := reflect.ValueOf(task.Commands[name])
+			// struct
+			s := taskReflect.Elem()
+			// exported field
+			f := s.FieldByName(strings.Title(parts[0]))
+			if f.IsValid() {
+				// A Value can be changed only if it is
+				// addressable and was not obtained by
+				// the use of unexported struct fields.
+				if f.CanSet() {
+					// change value of N
+					if f.Kind() == reflect.String {
+						if f.String() != "" {
+							return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", setting, lineNum)
+						}
+						f.SetString(parts[1])
+					}
+				}
+			} else {
+				return fmt.Errorf("Invalid block setting \"%s\". Line %d\n", parts[0], lineNum)
+			}
+		}
+	}
+	task.currentBlock = name
+	runningMode = modeCommand
+	return nil
+}
+
+func parseExpectBlockStart(cmd, opts string, task *TaskFile, lineNum int) error {
+	if task.Expects == nil {
+		task.Expects = make(map[string]*CommandBlock)
+	}
+
+	if opts == "" {
+		return fmt.Errorf("%s blocks must have a name. Line %d\n", cmd, lineNum)
+	}
+
+	pieces := strings.Split(opts, " ")
+	name := pieces[0]
+
+	_, set := task.Expects[name]
+	if set {
+		return fmt.Errorf("%s block with name '%s' already exists. Line %d\n", cmd, name, lineNum)
+	}
+
+	task.Expects[opts] = &CommandBlock{
+		Name: name,
+	}
+	task.currentBlock = opts
+	runningMode = modeExpect
+	return nil
 }
 
 func parseCommandLine(line string, task *TaskFile, lineNum int) error {
@@ -197,17 +252,18 @@ func parseCommandLine(line string, task *TaskFile, lineNum int) error {
 		return parseLine(line, task, lineNum)
 	}
 	sigWs := matches[0]
+	current := task.Commands[task.currentBlock]
 
-	if len(task.Commands) == 0 {
-		task.commandWhitespace = sigWs
+	if len(current.Commands) == 0 {
+		current.sigWs = sigWs
 	} else {
-		if sigWs != task.commandWhitespace {
+		if sigWs != current.sigWs {
 			return fmt.Errorf("Command not in block, check indention. Line %d\n", lineNum)
 		}
 	}
 
 	line = strings.TrimSpace(line)
-	task.Commands = append(task.Commands, line)
+	current.Commands = append(current.Commands, line)
 	return nil
 }
 
@@ -217,17 +273,18 @@ func parseExpectLine(line string, task *TaskFile, lineNum int) error {
 		return parseLine(line, task, lineNum)
 	}
 	sigWs := matches[0]
+	current := task.Expects[task.currentBlock]
 
-	if task.Expect == "" {
-		task.expectWhitespace = sigWs
+	if current.String == "" {
+		current.sigWs = sigWs
 	} else {
-		if sigWs != task.expectWhitespace {
+		if sigWs != current.sigWs {
 			return fmt.Errorf("Expect line not in block, check indention. Line %d\n", lineNum)
 		}
 	}
 
 	line = strings.TrimSpace(line)
-	task.Expect += line + "\n"
+	current.String += line + "\n"
 	return nil
 }
 
@@ -236,6 +293,7 @@ func checkFilterSettings(task *TaskFile) error {
 		if task.Manufacturer != "" || task.Group != "" {
 			return errors.New("Cannot use Filter with Group or Manufacturer\n")
 		}
+		return nil
 	}
 
 	if task.Manufacturer == "" || strings.ToLower(task.Manufacturer) == "all" {
@@ -247,14 +305,4 @@ func checkFilterSettings(task *TaskFile) error {
 
 	task.Filter = task.Manufacturer + ":" + task.Group
 	return nil
-}
-
-func parseAdditionalArgs(task *TaskFile) {
-	if task.AdditionalArgs != "" {
-		task.AdditionalArgsParsed = strings.Split(task.AdditionalArgs, ";")
-
-		for i, arg := range task.AdditionalArgsParsed {
-			task.AdditionalArgsParsed[i] = strings.TrimSpace(arg)
-		}
-	}
 }

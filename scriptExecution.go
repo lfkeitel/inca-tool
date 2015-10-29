@@ -12,15 +12,15 @@ import (
 	us "github.com/dragonrider23/utils/sync"
 )
 
-func execScriptMode(devices []host, task *parser.TaskFile) error {
-	if _, err := os.Stat(task.Script); os.IsNotExist(err) {
-		return fmt.Errorf("Script file does not exist: %s\n", task.Script)
+func execScript(devices []host, task *parser.TaskFile, script string, args []string) error {
+	if _, err := os.Stat(script); os.IsNotExist(err) {
+		return fmt.Errorf("Script file does not exist: %s\n", script)
 	}
 
-	return executeTask(devices, task)
+	return executeTask(devices, task, script, args)
 }
 
-func executeTask(hosts []host, task *parser.TaskFile) error {
+func executeTask(hosts []host, task *parser.TaskFile, script string, eargs []string) error {
 	var wg sync.WaitGroup
 	concurrent := task.Concurrent
 	if concurrent <= 0 {
@@ -33,7 +33,7 @@ func executeTask(hosts []host, task *parser.TaskFile) error {
 		if verbose {
 			fmt.Printf("Configuring host %s\n", host.address)
 		}
-		args := getArguments(host, task)
+		args := getArguments(host, task, eargs)
 
 		wg.Add(1)
 		lg.Add(1)
@@ -42,7 +42,7 @@ func executeTask(hosts []host, task *parser.TaskFile) error {
 				wg.Done()
 				lg.Done()
 			}()
-			scriptExecute(task.Script, args)
+			scriptExecute(script, args)
 			if verbose {
 				fmt.Printf("Finished configuring host %s\n", host.address)
 			}
@@ -56,6 +56,14 @@ func executeTask(hosts []host, task *parser.TaskFile) error {
 }
 
 func scriptExecute(sfn string, args []string) error {
+	if debug {
+		fmt.Printf("Args: %#v\n", args)
+	}
+
+	if dryRun {
+		return nil
+	}
+
 	cmd := exec.Command(sfn, args...)
 	var out bytes.Buffer
 	var stderr bytes.Buffer

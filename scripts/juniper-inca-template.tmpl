@@ -1,8 +1,21 @@
+#!/usr/bin/expect -f
+
 # Set variables
+set protocol [lindex $argv 0]
+set man [lindex $argv 1]
 set hostname [lindex $argv 2]
 set username [lindex $argv 3]
 set password [lindex $argv 4]
-set enablepassword [lindex $argv 5]
+
+if {$man != "juniper"} {
+    send_error "This script is for Juniper devices only\n"
+    exit 1
+}
+
+if {$protocol != "ssh"} {
+    send_error "This script connects with SSH only\n"
+    exit 1
+}
 
 # Don't check keys
 spawn ssh -o StrictHostKeyChecking=no $username\@$hostname
@@ -15,21 +28,28 @@ expect {
     "yes/no" {
         send "yes\n"
     }
-    "#" {}
+    ">" {}
     "*assword:" {
         send "$password\n"
     }
 }
 
-# If we're not already in enable mode, get us there
 expect {
-    default { send_error "$hostname Enable mode login failed - Check password\n"; exit 1 }
-    "*assword:" { send_error "$hostname SSH login failed - Check password\n"; exit 1 }
-    "#" {}
+    "*assword:" { send_error "$hostname Authentication failed\n"; exit 1 }
+    ">"
+}
+
+send "configure\n"
+expect "#"
+
+# {{content}}
+send "exit\n"
+expect {
+    timeout {}
+    eof {}
     ">" {
-        send "enable\n"
-        expect "*assword"
-        send "$enablepassword\n"
-        expect "#"
+        send "exit\n"
     }
 }
+
+exit
