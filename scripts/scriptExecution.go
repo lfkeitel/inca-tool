@@ -118,7 +118,10 @@ func runTask(hosts []common.Host, task *parser.TaskFile, script string, eargs []
 
 func runScript(sfn string, args []string) error {
 	if debug {
-		fmt.Printf("Args: %#v\n", args)
+		fmt.Println("Script Arguments:")
+		for i, arg := range args {
+			fmt.Printf("  %d: %s\n", i, arg)
+		}
 	}
 
 	if dryRun {

@@ -164,7 +164,7 @@ func commandRun(taskfile string) {
 	}
 
 	if dryRun {
-		fmt.Print("Dry Run\n\n")
+		fmt.Print("\nDry Run\n\n")
 		for _, host := range hosts {
 			fmt.Printf("Name: %s\n", host.Name)
 			fmt.Printf("Hostname: %s\n", host.Address)

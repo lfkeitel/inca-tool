@@ -40,7 +40,6 @@ type CommandBlock struct {
 	Name     string
 	Type     string
 	Commands []string
-	String   string
 	Template string
 	sigWs    string
 }
@@ -202,7 +201,7 @@ func parseCommandBlockStart(cmd, opts string, task *TaskFile, lineNum int) error
 					// change value of N
 					if f.Kind() == reflect.String {
 						if f.String() != "" {
-							return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", setting, lineNum)
+							return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", parts[0], lineNum)
 						}
 						f.SetString(parts[1])
 					}
