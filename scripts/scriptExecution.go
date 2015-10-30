@@ -25,7 +25,7 @@ var (
 )
 
 // Execute script on devices based on the task file and extra arguments eargs.
-func Execute(devices []devices.Device, task *parser.TaskFile, script string, eargs []string) error {
+func Execute(devices *devices.DeviceList, task *parser.TaskFile, script string, eargs []string) error {
 	if _, err := os.Stat(script); os.IsNotExist(err) {
 		return fmt.Errorf("Script file does not exist: %s\n", script)
 	}
@@ -49,7 +49,7 @@ func SetDebug(setting bool) {
 }
 
 // ProcessScriptCommand processes an _s special command
-func ProcessScriptCommand(cmd string, task *parser.TaskFile, devices []devices.Device) error {
+func ProcessScriptCommand(cmd string, task *parser.TaskFile, devices *devices.DeviceList) error {
 	cmdPieces := strings.Split(cmd, "--")
 	if cmdPieces[0] == "" {
 		return fmt.Errorf("'_s' must have a filename")
@@ -85,16 +85,23 @@ func GenerateScriptFile(template string, data string) (string, error) {
 	return tmpFilename, nil
 }
 
-func runTask(hosts []devices.Device, task *parser.TaskFile, script string, eargs []string) error {
+func runTask(hosts *devices.DeviceList, task *parser.TaskFile, script string, eargs []string) error {
 	var wg sync.WaitGroup
 	lg := us.NewLimitGroup(task.Concurrent) // Used to enforce a maximum number of connections
 
-	for _, host := range hosts {
+	for _, host := range hosts.Devices {
 		host := host
 		if verbose {
-			fmt.Printf("Configuring host %s\n", host.Address)
+			fmt.Printf("Configuring host %s\n", host.GetSetting("address"))
 		}
 		args := getArguments(host, task, eargs)
+
+		if debug {
+			fmt.Println("Script Arguments:")
+			for i, arg := range args {
+				fmt.Printf("  %d: %s\n", i, arg)
+			}
+		}
 
 		wg.Add(1)
 		lg.Add(1)
@@ -105,7 +112,7 @@ func runTask(hosts []devices.Device, task *parser.TaskFile, script string, eargs
 			}()
 			runScript(script, args)
 			if verbose {
-				fmt.Printf("Finished configuring host %s\n", host.Address)
+				fmt.Printf("Finished configuring host %s\n", host.GetSetting("address"))
 			}
 		}()
 
@@ -117,13 +124,6 @@ func runTask(hosts []devices.Device, task *parser.TaskFile, script string, eargs
 }
 
 func runScript(sfn string, args []string) error {
-	if debug {
-		fmt.Println("Script Arguments:")
-		for i, arg := range args {
-			fmt.Printf("  %d: %s\n", i, arg)
-		}
-	}
-
 	if dryRun {
 		return nil
 	}

@@ -5,12 +5,8 @@ author: Lee Keitel
 date: 10/27/2015
 version: 1.0.0
 
-# Filter
-device list: devices.conf
-
-username: 123
-password: 456
-
+devices:
+    orr center cisco
 
 # List of commands to execute - special commands are prefixed with _
 # Comments in command blocks must have no indention or they will be parsed

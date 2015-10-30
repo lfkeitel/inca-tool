@@ -1,21 +1,16 @@
 package devices
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
 )
 
 // Device represents a device
 type Device struct {
-	Name         string
-	Address      string
-	Manufacturer string
-	Method       string
+	Name     string
+	settings map[string]string
+	Groups   []string
+	list     *DeviceList
 }
-
-// The below types are in preparation for a new device list format
 
 // DeviceList is a list of device groups
 type DeviceList struct {
@@ -25,88 +20,78 @@ type DeviceList struct {
 
 // Group is a collection of devices
 type Group struct {
-	Name    string
-	Devices []*Device
+	Name     string
+	Devices  []*Device
+	list     *DeviceList
+	settings map[string]string
 }
 
-var (
-	currentGroup = ""
-)
-
-// LoadDevices takes a filename and parses the file into a slice of Host objects
-func LoadDevices(filename string) ([]Device, error) {
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		return nil, fmt.Errorf("Devices file does not exist: %s\n", filename)
+// GetGlobal returns a setting from the global device settings
+func (d *DeviceList) GetGlobal(name string) string {
+	data, ok := d.Groups["global"].settings[name]
+	if !ok {
+		return ""
 	}
-
-	listFile, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer listFile.Close()
-
-	scanner := bufio.NewScanner(listFile)
-	scanner.Split(bufio.ScanLines)
-	var hostList []Device
-	lineNum := 0
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		line = strings.TrimSpace(line)
-		lineNum++
-
-		if len(line) < 1 || line[0] == '#' {
-			continue
-		}
-
-		splitLine := strings.Split(line, "::")
-
-		if len(splitLine) != 4 {
-			fmt.Printf("Error on line %d in device configuration\n", lineNum)
-			continue
-		}
-
-		device := Device{
-			Name:         splitLine[0],
-			Address:      splitLine[1],
-			Manufacturer: splitLine[2],
-			Method:       splitLine[3],
-		}
-
-		hostList = append(hostList, device)
-	}
-
-	return hostList, nil
+	return data
 }
 
-// FilterDevices filters a slice of Host objects by their Manufacturer and Method
-func FilterDevices(devices []Device, filter string) []Device {
-	filters := strings.Split(filter, ":")
-	man := filters[0]
-	proto := filters[1]
-	var hosts []Device
-
-	for _, device := range devices {
-		if man != "*" && device.Manufacturer != man {
-			continue
-		}
-
-		if proto != "*" && device.Method != proto {
-			continue
-		}
-
-		hosts = append(hosts, device)
+// GetSetting returns the setting with name name. Returns empty string if not found.
+func (g *Group) GetSetting(name string) string {
+	setting := g.list.GetGlobal(name)
+	ns, _ := g.settings[name]
+	if ns != "" {
+		setting = ns
 	}
-
-	return hosts
+	return setting
 }
 
-// LoadAndFilterDevices loads the devices from filename and filters them in one single function
-func LoadAndFilterDevices(filename, filter string) ([]Device, error) {
-	d, err := LoadDevices(filename)
-	if err != nil {
-		return nil, err
+// GetSetting returns the setting with name name. Returns empty string if not found.
+func (d *Device) GetSetting(name string) string {
+	setting := d.list.GetGlobal(name)
+	for _, g := range d.Groups {
+		ns := d.list.Groups[g].GetSetting(name)
+		if ns != "" {
+			setting = ns
+		}
+	}
+	ns, _ := d.settings[name]
+	if ns != "" {
+		setting = ns
+	}
+	return setting
+}
+
+// GetSettings returns all settings as a map
+func (g *Group) GetSettings() map[string]string {
+	return g.settings
+}
+
+// GetSettings returns all settings as a map
+func (d *Device) GetSettings() map[string]string {
+	return d.settings
+}
+
+// Filter filters a device list to the groups or devices specified
+func Filter(dl *DeviceList, filter []string) (*DeviceList, error) {
+	devices := &DeviceList{
+		Groups:  make(map[string]*Group),
+		Devices: make(map[string]*Device),
 	}
 
-	return FilterDevices(d, filter), nil
+	for _, term := range filter {
+		if _, exists := dl.Groups[term]; exists {
+			devices.Groups[term] = dl.Groups[term]
+			for _, d := range devices.Groups[term].Devices {
+				devices.Devices[d.Name] = d
+			}
+			continue
+		}
+		if _, exists := dl.Devices[term]; exists {
+			devices.Devices[term] = dl.Devices[term]
+			continue
+		}
+		return nil, fmt.Errorf("Group or device \"%s\" not found.\n", term)
+	}
+
+	return devices, nil
 }

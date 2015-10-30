@@ -2,3 +2,5 @@ it
 *telnetold2*
 tmp/
 tasks/
+private/
+devices.conf

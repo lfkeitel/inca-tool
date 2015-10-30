@@ -47,6 +47,22 @@ func main() {
 		} else if command == "help" {
 			printUsage()
 			os.Exit(0)
+		} else if command == "dev" && cliArgsc == 2 {
+			d, err := devices.ParseFile(cliArgs[1])
+			if err != nil {
+				fmt.Println(err.Error())
+			} else {
+				for _, group := range d.Groups {
+					fmt.Printf("Group: %s\n", group.Name)
+					fmt.Printf("Group Settings: %#v\n", group.GetSettings())
+					for _, dev := range group.Devices {
+						fmt.Printf("   DeviceName: %s\n", dev.Name)
+						fmt.Printf("   Device Settings: %#v\n", dev.GetSettings())
+					}
+					fmt.Println("")
+				}
+			}
+			os.Exit(0)
 		} else {
 			printUsage()
 			os.Exit(0)
@@ -99,10 +115,20 @@ func commandRun(taskfile string) {
 		os.Exit(1)
 	}
 
+	if task.DeviceList == "" {
+		task.DeviceList = "devices.conf"
+	}
+
 	// Load and filter devices
-	hosts, err := devices.LoadAndFilterDevices(task.DeviceList, task.Filter)
+	deviceList, err := devices.ParseFile(task.DeviceList)
 	if err != nil {
 		fmt.Printf("Error loading devices: %s\n", err.Error())
+		os.Exit(1)
+	}
+
+	deviceList, err = devices.Filter(deviceList, task.Devices)
+	if err != nil {
+		fmt.Printf("Error: %s\n", err.Error())
 		os.Exit(1)
 	}
 
@@ -113,10 +139,9 @@ func commandRun(taskfile string) {
 	fmt.Printf("  Author: %s\n", task.Author)
 	fmt.Printf("  Last Changed: %s\n", task.Date)
 	fmt.Printf("  Version: %s\n", task.Version)
-	fmt.Printf("  Filter: %s\n\n", task.Filter)
 
-	// If no hosts will be affected, exit
-	if len(hosts) == 0 {
+	// If no deviceList will be affected, exit
+	if len(deviceList.Devices) == 0 {
 		fmt.Println("Due to filtering, no devices would be affected. Exiting.")
 		return
 	}
@@ -125,7 +150,7 @@ func commandRun(taskfile string) {
 	text, err := parser.CompileCommandText("main", task)
 	if err != nil {
 		if parser.IsScriptRun(err) {
-			if err := scripts.ProcessScriptCommand(text, task, hosts); err != nil {
+			if err := scripts.ProcessScriptCommand(text, task, deviceList); err != nil {
 				fmt.Printf("Error executing task: %s\n", err.Error())
 			}
 			os.Exit(1)
@@ -153,7 +178,7 @@ func commandRun(taskfile string) {
 	}
 
 	// Execute the script (the dry run setting will stop before actual execution)
-	err = scripts.Execute(hosts, task, scriptFilename, nil)
+	err = scripts.Execute(deviceList, task, scriptFilename, nil)
 	if !debug {
 		os.Remove(scriptFilename)
 	}
@@ -165,16 +190,19 @@ func commandRun(taskfile string) {
 
 	if dryRun {
 		fmt.Print("\nDry Run\n\n")
-		for _, host := range hosts {
-			fmt.Printf("Name: %s\n", host.Name)
-			fmt.Printf("Hostname: %s\n", host.Address)
-			fmt.Printf("Manufacturer: %s\n", host.Manufacturer)
-			fmt.Printf("Protocol: %s\n", host.Method)
+		for _, host := range deviceList.Devices {
+			fmt.Printf("Hostname: %s\n", host.Name)
+			fmt.Printf("Address: %s\n", host.GetSetting("address"))
+			proto := host.GetSetting("protocol")
+			if proto == "" {
+				proto = "ssh"
+			}
+			fmt.Printf("Protocol: %s\n", proto)
 			fmt.Println("---------")
 		}
 	}
 
-	fmt.Printf("\nHosts touched: %d\n", len(hosts))
+	fmt.Printf("\nHosts touched: %d\n", len(deviceList.Devices))
 }
 
 func validateTaskFile(filename string) {
@@ -205,11 +233,11 @@ func validateTaskFile(filename string) {
 
 		fmt.Printf("  Concurrent Devices: %d\n", task.Concurrent)
 		fmt.Printf("  Devices File: %s\n", task.DeviceList)
-		fmt.Printf("  Filter: %s\n\n", task.Filter)
 
-		fmt.Printf("  Username: %s\n", task.Username)
-		fmt.Printf("  Password: %s\n", task.Password)
-		fmt.Printf("  Enable Password: %s\n\n", task.EnablePassword)
+		fmt.Print("  ----Task Device Block----\n")
+		for _, d := range task.Devices {
+			fmt.Printf("  Device(s): %s\n", d)
+		}
 
 		fmt.Print("  ----Task Command Blocks----\n")
 		for _, c := range task.Commands {

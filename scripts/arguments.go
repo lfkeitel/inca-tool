@@ -5,21 +5,23 @@ import (
 	"github.com/dragonrider23/inca-tool/parser"
 )
 
-func getArguments(host devices.Device, task *parser.TaskFile, eargs []string) []string {
-	argList := make([]string, 6+len(eargs))
-	argList[0] = host.Method
-	argList[1] = host.Manufacturer
-	argList[2] = host.Address
-	argList[3] = task.Username
-	argList[4] = task.Password
-	if task.EnablePassword != "" {
-		argList[5] = task.EnablePassword
+func getArguments(host *devices.Device, task *parser.TaskFile, eargs []string) []string {
+	argList := make([]string, 5+len(eargs))
+	argList[0] = host.GetSetting("protocol")
+	if argList[0] == "" {
+		argList[0] = "ssh"
+	}
+	argList[1] = host.GetSetting("address")
+	argList[2] = host.GetSetting("remote_user")
+	argList[3] = host.GetSetting("remote_password")
+	if host.GetSetting("cisco_enable") != "" {
+		argList[4] = host.GetSetting("cisco_enable")
 	} else {
-		argList[5] = task.Password
+		argList[4] = host.GetSetting("remote_password")
 	}
 
 	for i, arg := range eargs {
-		argList[i+6] = arg
+		argList[i+5] = arg
 	}
 	return argList
 }

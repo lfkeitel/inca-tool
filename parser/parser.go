@@ -20,14 +20,8 @@ type TaskFile struct {
 	Version     string
 	Concurrent  int32
 
-	DeviceList   string
-	Manufacturer string
-	Group        string
-	Filter       string
-
-	Username       string
-	Password       string
-	EnablePassword string
+	DeviceList string
+	Devices    []string
 
 	currentBlock string
 	Commands     map[string]*CommandBlock
@@ -41,17 +35,18 @@ type CommandBlock struct {
 	Type     string
 	Commands []string
 	Template string
-	sigWs    string
 }
 
 const (
 	modeRoot = iota
 	modeCommand
+	modeDevices
 )
 
 var (
-	runningMode = modeRoot
-	wsRegex     = regexp.MustCompile(`^(\s+)`)
+	runningMode  = modeRoot
+	wsRegex      = regexp.MustCompile(`^(\s+)`)
+	currentSigWs = ""
 )
 
 // Parse will load the file filename and put it into a TaskFile struct or return and error if something goes wrong
@@ -88,15 +83,15 @@ func parse(filename string) (*TaskFile, error) {
 			if err := parseCommandLine(line, task, lineNum); err != nil {
 				return nil, err
 			}
+		} else if runningMode == modeDevices {
+			if err := parseDeviceLine(line, task, lineNum); err != nil {
+				return nil, err
+			}
 		} else {
 			if err := parseLine(line, task, lineNum); err != nil {
 				return nil, err
 			}
 		}
-	}
-
-	if err := checkFilterSettings(task); err != nil {
-		return nil, err
 	}
 
 	if err := finishUp(task); err != nil {
@@ -123,6 +118,9 @@ func parseLine(line string, task *TaskFile, lineNum int) error {
 	switch setting {
 	case "Commands":
 		return parseCommandBlockStart(setting, settingVal, task, lineNum)
+	case "Devices":
+		runningMode = modeDevices
+		return nil
 	}
 
 	taskReflect := reflect.ValueOf(task)
@@ -225,9 +223,9 @@ func parseCommandLine(line string, task *TaskFile, lineNum int) error {
 	current := task.Commands[task.currentBlock]
 
 	if len(current.Commands) == 0 {
-		current.sigWs = sigWs
+		currentSigWs = sigWs
 	} else {
-		if sigWs != current.sigWs {
+		if sigWs != currentSigWs {
 			return fmt.Errorf("Command not in block, check indention. Line %d\n", lineNum)
 		}
 	}
@@ -237,22 +235,23 @@ func parseCommandLine(line string, task *TaskFile, lineNum int) error {
 	return nil
 }
 
-func checkFilterSettings(task *TaskFile) error {
-	if task.Filter != "" {
-		if task.Manufacturer != "" || task.Group != "" {
-			return errors.New("Cannot use Filter with Group or Manufacturer\n")
+func parseDeviceLine(line string, task *TaskFile, lineNum int) error {
+	matches := wsRegex.FindStringSubmatch(line)
+	if len(matches) == 0 {
+		return parseLine(line, task, lineNum)
+	}
+	sigWs := matches[0]
+
+	if len(task.Devices) == 0 {
+		currentSigWs = sigWs
+	} else {
+		if sigWs != currentSigWs {
+			return fmt.Errorf("Device not in block, check indention. Line %d\n", lineNum)
 		}
-		return nil
 	}
 
-	if task.Manufacturer == "" || strings.ToLower(task.Manufacturer) == "all" {
-		task.Manufacturer = "*"
-	}
-	if task.Group == "" || strings.ToLower(task.Group) == "all" {
-		task.Group = "*"
-	}
-
-	task.Filter = task.Manufacturer + ":" + task.Group
+	line = strings.TrimSpace(line)
+	task.Devices = append(task.Devices, line)
 	return nil
 }
 
@@ -263,18 +262,6 @@ func finishUp(task *TaskFile) error {
 
 	if _, ok := task.Commands["main"]; !ok {
 		return errors.New("No main command block declared")
-	}
-
-	if task.DeviceList == "" {
-		return errors.New("No device list given")
-	}
-
-	if task.Username == "" {
-		return errors.New("No username given")
-	}
-
-	if task.Password == "" {
-		return errors.New("No password given")
 	}
 	return nil
 }
