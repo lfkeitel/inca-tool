@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dragonrider23/inca-tool/common"
+	"github.com/dragonrider23/inca-tool/devices"
 	"github.com/dragonrider23/inca-tool/parser"
 
 	us "github.com/dragonrider23/utils/sync"
@@ -25,7 +25,7 @@ var (
 )
 
 // Execute script on devices based on the task file and extra arguments eargs.
-func Execute(devices []common.Host, task *parser.TaskFile, script string, eargs []string) error {
+func Execute(devices []devices.Device, task *parser.TaskFile, script string, eargs []string) error {
 	if _, err := os.Stat(script); os.IsNotExist(err) {
 		return fmt.Errorf("Script file does not exist: %s\n", script)
 	}
@@ -49,7 +49,7 @@ func SetDebug(setting bool) {
 }
 
 // ProcessScriptCommand processes an _s special command
-func ProcessScriptCommand(cmd string, task *parser.TaskFile, devices []common.Host) error {
+func ProcessScriptCommand(cmd string, task *parser.TaskFile, devices []devices.Device) error {
 	cmdPieces := strings.Split(cmd, "--")
 	if cmdPieces[0] == "" {
 		return fmt.Errorf("'_s' must have a filename")
@@ -85,7 +85,7 @@ func GenerateScriptFile(template string, data string) (string, error) {
 	return tmpFilename, nil
 }
 
-func runTask(hosts []common.Host, task *parser.TaskFile, script string, eargs []string) error {
+func runTask(hosts []devices.Device, task *parser.TaskFile, script string, eargs []string) error {
 	var wg sync.WaitGroup
 	lg := us.NewLimitGroup(task.Concurrent) // Used to enforce a maximum number of connections
 

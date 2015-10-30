@@ -1,11 +1,11 @@
 package scripts
 
 import (
-	"github.com/dragonrider23/inca-tool/common"
+	"github.com/dragonrider23/inca-tool/devices"
 	"github.com/dragonrider23/inca-tool/parser"
 )
 
-func getArguments(host common.Host, task *parser.TaskFile, eargs []string) []string {
+func getArguments(host devices.Device, task *parser.TaskFile, eargs []string) []string {
 	argList := make([]string, 6+len(eargs))
 	argList[0] = host.Method
 	argList[1] = host.Manufacturer

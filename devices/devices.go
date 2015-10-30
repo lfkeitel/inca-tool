@@ -1,4 +1,4 @@
-package common
+package devices
 
 import (
 	"bufio"
@@ -7,8 +7,34 @@ import (
 	"strings"
 )
 
+// Device represents a device
+type Device struct {
+	Name         string
+	Address      string
+	Manufacturer string
+	Method       string
+}
+
+// The below types are in preparation for a new device list format
+
+// DeviceList is a list of device groups
+type DeviceList struct {
+	Groups  map[string]*Group
+	Devices map[string]*Device
+}
+
+// Group is a collection of devices
+type Group struct {
+	Name    string
+	Devices []*Device
+}
+
+var (
+	currentGroup = ""
+)
+
 // LoadDevices takes a filename and parses the file into a slice of Host objects
-func LoadDevices(filename string) ([]Host, error) {
+func LoadDevices(filename string) ([]Device, error) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return nil, fmt.Errorf("Devices file does not exist: %s\n", filename)
 	}
@@ -21,7 +47,7 @@ func LoadDevices(filename string) ([]Host, error) {
 
 	scanner := bufio.NewScanner(listFile)
 	scanner.Split(bufio.ScanLines)
-	var hostList []Host
+	var hostList []Device
 	lineNum := 0
 
 	for scanner.Scan() {
@@ -40,7 +66,7 @@ func LoadDevices(filename string) ([]Host, error) {
 			continue
 		}
 
-		device := Host{
+		device := Device{
 			Name:         splitLine[0],
 			Address:      splitLine[1],
 			Manufacturer: splitLine[2],
@@ -54,11 +80,11 @@ func LoadDevices(filename string) ([]Host, error) {
 }
 
 // FilterDevices filters a slice of Host objects by their Manufacturer and Method
-func FilterDevices(devices []Host, filter string) []Host {
+func FilterDevices(devices []Device, filter string) []Device {
 	filters := strings.Split(filter, ":")
 	man := filters[0]
 	proto := filters[1]
-	var hosts []Host
+	var hosts []Device
 
 	for _, device := range devices {
 		if man != "*" && device.Manufacturer != man {
@@ -76,7 +102,7 @@ func FilterDevices(devices []Host, filter string) []Host {
 }
 
 // LoadAndFilterDevices loads the devices from filename and filters them in one single function
-func LoadAndFilterDevices(filename, filter string) ([]Host, error) {
+func LoadAndFilterDevices(filename, filter string) ([]Device, error) {
 	d, err := LoadDevices(filename)
 	if err != nil {
 		return nil, err

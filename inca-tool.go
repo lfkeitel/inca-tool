@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/dragonrider23/inca-tool/common"
+	"github.com/dragonrider23/inca-tool/devices"
 	"github.com/dragonrider23/inca-tool/parser"
 	"github.com/dragonrider23/inca-tool/scripts"
 )
@@ -100,7 +100,7 @@ func commandRun(taskfile string) {
 	}
 
 	// Load and filter devices
-	hosts, err := common.LoadAndFilterDevices(task.DeviceList, task.Filter)
+	hosts, err := devices.LoadAndFilterDevices(task.DeviceList, task.Filter)
 	if err != nil {
 		fmt.Printf("Error loading devices: %s\n", err.Error())
 		os.Exit(1)
