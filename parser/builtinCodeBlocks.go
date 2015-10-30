@@ -1,6 +1,9 @@
-package main
+package parser
 
 var builtinBlocks = map[string]string{
+	// Special builtin that basically stops compiling, used for testing
+	"nil": "",
+
 	// Exit without commiting changes
 	"juniper-exit-nocommit": `
 send "exit\n"
@@ -24,7 +27,7 @@ expect {
 		send_error "$hostname failed to commit changes"
 		exit 1
 	}
-	"#"
+	"commit complete"
 }
 set timeout $oldTimeout`,
 

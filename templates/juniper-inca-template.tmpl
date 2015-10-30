@@ -36,6 +36,10 @@ expect {
 
 expect {
     "*assword:" { send_error "$hostname Authentication failed\n"; exit 1 }
+    "0%" {
+        send "cli\n"
+        expect ">"
+    }
     ">"
 }
 

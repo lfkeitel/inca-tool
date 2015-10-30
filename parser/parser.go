@@ -1,4 +1,4 @@
-package taskfileparser
+package parser
 
 import (
 	"bufio"
@@ -31,7 +31,6 @@ type TaskFile struct {
 
 	currentBlock string
 	Commands     map[string]*CommandBlock
-	Expects      map[string]*CommandBlock
 
 	Mode string
 }
@@ -49,7 +48,6 @@ type CommandBlock struct {
 const (
 	modeRoot = iota
 	modeCommand
-	modeExpect
 )
 
 var (
@@ -91,10 +89,6 @@ func parse(filename string) (*TaskFile, error) {
 			if err := parseCommandLine(line, task, lineNum); err != nil {
 				return nil, err
 			}
-		} else if runningMode == modeExpect {
-			if err := parseExpectLine(line, task, lineNum); err != nil {
-				return nil, err
-			}
 		} else {
 			if err := parseLine(line, task, lineNum); err != nil {
 				return nil, err
@@ -103,6 +97,10 @@ func parse(filename string) (*TaskFile, error) {
 	}
 
 	if err := checkFilterSettings(task); err != nil {
+		return nil, err
+	}
+
+	if err := finishUp(task); err != nil {
 		return nil, err
 	}
 
@@ -126,8 +124,6 @@ func parseLine(line string, task *TaskFile, lineNum int) error {
 	switch setting {
 	case "Commands":
 		return parseCommandBlockStart(setting, settingVal, task, lineNum)
-	case "Expect":
-		return parseExpectBlockStart(setting, settingVal, task, lineNum)
 	}
 
 	taskReflect := reflect.ValueOf(task)
@@ -221,31 +217,6 @@ func parseCommandBlockStart(cmd, opts string, task *TaskFile, lineNum int) error
 	return nil
 }
 
-func parseExpectBlockStart(cmd, opts string, task *TaskFile, lineNum int) error {
-	if task.Expects == nil {
-		task.Expects = make(map[string]*CommandBlock)
-	}
-
-	if opts == "" {
-		return fmt.Errorf("%s blocks must have a name. Line %d\n", cmd, lineNum)
-	}
-
-	pieces := strings.Split(opts, " ")
-	name := pieces[0]
-
-	_, set := task.Expects[name]
-	if set {
-		return fmt.Errorf("%s block with name '%s' already exists. Line %d\n", cmd, name, lineNum)
-	}
-
-	task.Expects[opts] = &CommandBlock{
-		Name: name,
-	}
-	task.currentBlock = opts
-	runningMode = modeExpect
-	return nil
-}
-
 func parseCommandLine(line string, task *TaskFile, lineNum int) error {
 	matches := wsRegex.FindStringSubmatch(line)
 	if len(matches) == 0 {
@@ -267,27 +238,6 @@ func parseCommandLine(line string, task *TaskFile, lineNum int) error {
 	return nil
 }
 
-func parseExpectLine(line string, task *TaskFile, lineNum int) error {
-	matches := wsRegex.FindStringSubmatch(line)
-	if len(matches) == 0 {
-		return parseLine(line, task, lineNum)
-	}
-	sigWs := matches[0]
-	current := task.Expects[task.currentBlock]
-
-	if current.String == "" {
-		current.sigWs = sigWs
-	} else {
-		if sigWs != current.sigWs {
-			return fmt.Errorf("Expect line not in block, check indention. Line %d\n", lineNum)
-		}
-	}
-
-	line = strings.TrimSpace(line)
-	current.String += line + "\n"
-	return nil
-}
-
 func checkFilterSettings(task *TaskFile) error {
 	if task.Filter != "" {
 		if task.Manufacturer != "" || task.Group != "" {
@@ -304,5 +254,28 @@ func checkFilterSettings(task *TaskFile) error {
 	}
 
 	task.Filter = task.Manufacturer + ":" + task.Group
+	return nil
+}
+
+func finishUp(task *TaskFile) error {
+	if task.Concurrent <= 0 {
+		task.Concurrent = 300
+	}
+
+	if _, ok := task.Commands["main"]; !ok {
+		return errors.New("No main command block declared")
+	}
+
+	if task.DeviceList == "" {
+		return errors.New("No device list given")
+	}
+
+	if task.Username == "" {
+		return errors.New("No username given")
+	}
+
+	if task.Password == "" {
+		return errors.New("No password given")
+	}
 	return nil
 }
