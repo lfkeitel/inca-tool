@@ -20,6 +20,7 @@ type TaskFile struct {
 	Date        string
 	Version     string
 	Concurrent  int32
+	Template    string
 
 	DeviceList string
 	Devices    []string
@@ -33,7 +34,6 @@ type CommandBlock struct {
 	Name     string
 	Type     string
 	Commands []string
-	Template string
 	Prompt   string
 }
 

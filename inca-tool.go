@@ -115,6 +115,12 @@ func commandRun(taskfile string) {
 		os.Exit(1)
 	}
 
+	// If no devices were given, print err and exit
+	if len(task.Devices) == 0 {
+		fmt.Println("No devices were specified in the task file. Exiting.")
+		return
+	}
+
 	// Load and filter devices
 	deviceList, err := devices.ParseFile(task.DeviceList)
 	if err != nil {
@@ -128,6 +134,12 @@ func commandRun(taskfile string) {
 		os.Exit(1)
 	}
 
+	// If no devices will be affected, exit
+	if len(deviceList.Devices) == 0 {
+		fmt.Println("Due to filtering, no devices would be affected. Exiting.")
+		return
+	}
+
 	// Print some task information
 	fmt.Printf("Task Information:\n")
 	fmt.Printf("  Name: %s\n", task.Name)
@@ -135,12 +147,6 @@ func commandRun(taskfile string) {
 	fmt.Printf("  Author: %s\n", task.Author)
 	fmt.Printf("  Last Changed: %s\n", task.Date)
 	fmt.Printf("  Version: %s\n", task.Version)
-
-	// If no deviceList will be affected, exit
-	if len(deviceList.Devices) == 0 {
-		fmt.Println("Due to filtering, no devices would be affected. Exiting.")
-		return
-	}
 
 	// Compile the script text
 	text, err := parser.CompileCommandText("main", task)
@@ -156,7 +162,7 @@ func commandRun(taskfile string) {
 	}
 
 	// Get the template file
-	template := task.Commands["main"].Template
+	template := task.Template
 	if template == "" {
 		template = "expect"
 	}
@@ -232,7 +238,8 @@ func validateTaskFile(filename string) {
 		fmt.Printf("  Version: %s\n\n", task.Version)
 
 		fmt.Printf("  Concurrent Devices: %d\n", task.Concurrent)
-		fmt.Printf("  Devices File: %s\n", task.DeviceList)
+		fmt.Printf("  Template: %s\n", task.Template)
+		fmt.Printf("  Devices File: %s\n\n", task.DeviceList)
 
 		fmt.Print("  ----Task Device Block----\n")
 		for _, d := range task.Devices {
@@ -243,7 +250,6 @@ func validateTaskFile(filename string) {
 		for _, c := range task.Commands {
 			fmt.Printf("  Command block Name: %s\n", c.Name)
 			fmt.Printf("  Command block Type: %s\n", c.Type)
-			fmt.Printf("  Command block Template: %s\n", c.Template)
 			fmt.Printf("  Commands:\n")
 			for _, cmd := range c.Commands {
 				fmt.Printf("     %s\n", cmd)

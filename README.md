@@ -1,7 +1,7 @@
 Inca Tool
 ===========
 
-Inca Tool is a CLI utility to manage infrastructure and deploy configurations using device definitions from an existing Inca v2 installation.
+Inca Tool is a CLI utility to manage infrastructure and deploy configurations across multiple devices at the same time.
 
 Usage
 -----
@@ -34,10 +34,13 @@ author: Lee Keitel
 date: 10/27/2015
 version: 1.0.0
 
-# How many devices to run at the same time
+# How many devices to run at the same time, Defaults to 300
 concurrent: 5
 
-# device list defaults to "devices.conf"
+# script template to use, Defaults to expect, Values can be "expect", "bash"
+template: expect
+
+# device list file, Defaults to "devices.conf"
 device list: devices.conf
 
 # list of groups or individual devices this task applies to
@@ -50,17 +53,13 @@ devices:
 # Comments in command blocks must have no indention or they will be parsed
 # as their own command line
 # The line is structured as "commands: [name] [key=value]"
-commands: main template=bash type=raw
+commands: main type=raw
     set hostname AwesomeDevice1
 ```
 
 Command Block Settings
 ----------------------
 
-- template
-    - Default: expect
-    - Values: expect, bash
-    - Specifies the template script file to use.
 - type
     - Default: expect
     - Values: expect, raw

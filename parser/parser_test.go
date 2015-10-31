@@ -19,7 +19,7 @@ version: 1.0.0`
 // Concurrent setting parts
 var testFileConcurrent = []string{
 	"concurrent: 10",
-	"concurrent: 0",
+	"concurrent: 0\ntemplate: bash",
 }
 
 // Device list parts
@@ -42,7 +42,7 @@ var testFileCommandBlocks = []string{
     _b juniper-commit-rollback-failed`,
 
 	// Test settings
-	`commands: main template=bash type=raw prompt=$
+	`commands: main type=raw prompt=$
     _b juniper-configure
     set system hostname Keitel1
     _b juniper-commit-rollback-failed`,
@@ -76,6 +76,7 @@ var testCasesStructs = []*TaskFile{
 		Date:        "10/27/2015",
 		Version:     "1.0.0",
 		Concurrent:  10,
+		Template:    "",
 
 		DeviceList: "inventory.conf",
 		Devices: []string{
@@ -92,8 +93,7 @@ var testCasesStructs = []*TaskFile{
 					"set system hostname Keitel1",
 					"_b juniper-commit-rollback-failed",
 				},
-				Template: "",
-				Prompt:   "",
+				Prompt: "",
 			},
 		},
 	},
@@ -104,6 +104,7 @@ var testCasesStructs = []*TaskFile{
 		Date:        "10/27/2015",
 		Version:     "1.0.0",
 		Concurrent:  300,
+		Template:    "bash",
 
 		DeviceList: "devices.conf",
 		Devices: []string{
@@ -121,8 +122,7 @@ var testCasesStructs = []*TaskFile{
 					"set system hostname Keitel1",
 					"_b juniper-commit-rollback-failed",
 				},
-				Template: "bash",
-				Prompt:   "$",
+				Prompt: "$",
 			},
 		},
 	},
