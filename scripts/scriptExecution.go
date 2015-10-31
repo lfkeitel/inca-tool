@@ -77,7 +77,7 @@ func GenerateScriptFile(template string, data string) (string, error) {
 		return "", err
 	}
 
-	generated := strings.Replace(string(file), "# {{content}}", data, -1)
+	generated := strings.Replace(string(file), "{{main}}", data, -1)
 	tmpFilename := "tmp/builtScript-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	if err := ioutil.WriteFile(tmpFilename, []byte(generated), 0744); err != nil {
 		return "", err
@@ -94,12 +94,15 @@ func runTask(hosts *devices.DeviceList, task *parser.TaskFile, script string, ea
 		if verbose {
 			fmt.Printf("Configuring host %s\n", host.GetSetting("address"))
 		}
-		args := getArguments(host, task, eargs)
+		vars := getVariables(host, task)
+		if err := insertVariables(script, vars); err != nil {
+			return err
+		}
 
 		if debug {
-			fmt.Println("Script Arguments:")
-			for i, arg := range args {
-				fmt.Printf("  %d: %s\n", i, arg)
+			fmt.Println("Script Variables:")
+			for i, v := range vars {
+				fmt.Printf("  %s: %s\n", i, v)
 			}
 		}
 
@@ -110,7 +113,7 @@ func runTask(hosts *devices.DeviceList, task *parser.TaskFile, script string, ea
 				wg.Done()
 				lg.Done()
 			}()
-			runScript(script, args)
+			runScript(script, eargs)
 			if verbose {
 				fmt.Printf("Finished configuring host %s\n", host.GetSetting("address"))
 			}
@@ -136,6 +139,26 @@ func runScript(sfn string, args []string) error {
 	err := cmd.Run()
 	if err != nil {
 		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
+		return err
+	}
+	return nil
+}
+
+func insertVariables(script string, vars map[string]string) error {
+	file, err := ioutil.ReadFile(script)
+	if err != nil {
+		return err
+	}
+
+	generated := string(file)
+	for n, v := range vars {
+		if v == "" {
+			v = "\"\""
+		}
+		generated = strings.Replace(generated, "{{"+n+"}}", v, -1)
+	}
+
+	if err := ioutil.WriteFile(script, []byte(generated), 0744); err != nil {
 		return err
 	}
 	return nil

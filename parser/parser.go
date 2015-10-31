@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"regexp"
@@ -25,8 +26,6 @@ type TaskFile struct {
 
 	currentBlock string
 	Commands     map[string]*CommandBlock
-
-	Mode string
 }
 
 // CommandBlock contains all the settings for a block of commands
@@ -35,6 +34,7 @@ type CommandBlock struct {
 	Type     string
 	Commands []string
 	Template string
+	Prompt   string
 }
 
 const (
@@ -55,17 +55,16 @@ func Parse(filename string) (*TaskFile, error) {
 		return nil, fmt.Errorf("Task file does not exist: %s\n", filename)
 	}
 
-	return parse(filename)
-}
-
-func parse(filename string) (*TaskFile, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
+	return parseReader(file)
+}
 
-	scanner := bufio.NewScanner(file)
+func parseReader(reader io.Reader) (*TaskFile, error) {
+	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
 	task := &TaskFile{}
 	lineNum := 0
@@ -258,6 +257,10 @@ func parseDeviceLine(line string, task *TaskFile, lineNum int) error {
 func finishUp(task *TaskFile) error {
 	if task.Concurrent <= 0 {
 		task.Concurrent = 300
+	}
+
+	if task.DeviceList == "" {
+		task.DeviceList = "devices.conf"
 	}
 
 	if _, ok := task.Commands["main"]; !ok {

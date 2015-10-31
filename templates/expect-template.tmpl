@@ -1,0 +1,66 @@
+#!/usr/bin/expect -f
+
+# Set variables
+set protocol {{protocol}}
+set hostname {{hostname}}
+set username {{remote_user}}
+set password {{remote_password}}
+set enablepassword {{cisco_enable}}
+
+if {$protocol == "ssh"} {
+    # Don't check keys
+    spawn ssh -o StrictHostKeyChecking=no $username\@$hostname
+
+    # Allow this script to handle ssh connection issues
+    expect {
+        timeout { send_error "$hostname Timeout exceeded\n"; exit 1 }
+        eof { send_error "$hostname SSH connection to host failed\n"; exit 1 }
+        "refused" { send_error "$hostname SSH connection refused\n"; exit 1 }
+        "yes/no" {
+            send "yes\n"
+        }
+        "*assword:" {
+            send "$password\n"
+        }
+    }
+} elseif {$protocol == "telnet"} {
+    # Start telnet session
+    spawn telnet $hostname
+
+    # Allow this script to handle ssh connection issues
+    expect {
+    	timeout {
+    		send_error "$hostname Telnet connection failed\n"
+    		exit 1
+    	}
+    	"refused" {
+    		send_error "$hostname Telnet connection refused\n"
+    		exit 1
+    	}
+    	"*sername:" {
+    		send "$username\n"
+    		expect {
+    			"*assword:" {
+    				send "$password\n"
+    			}
+    		}
+    	}
+    	"*assword:" {
+    		send "$password\n"
+    		expect {
+    			"*assword:" {
+    				send "$enablepassword\n"
+    			}
+    			"#" {}
+    			">" {}
+    		}
+    	}
+    }
+} else {
+    send_error "Protocol $protocol is not supported\n"
+    exit 1
+}
+
+{{main}}
+
+exit

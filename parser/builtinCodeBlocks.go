@@ -4,13 +4,32 @@ var builtinBlocks = map[string]string{
 	// Special builtin that basically stops compiling, used for testing
 	"nil": "",
 
+	"juniper-configure": `
+expect {
+    "*assword:" { send_error "$hostname Authentication failed\n"; exit 1 }
+    "0%" {
+        send "cli\n"
+        expect ">"
+    }
+    ">"
+}
+send "configure\n"
+expect "#"
+`,
+
 	// Exit without commiting changes
 	"juniper-exit-nocommit": `
 send "exit\n"
 expect {
-    "Exit with uncommitted changes?" { send "yes\n" }
+    "Exit with uncommitted changes?" { send "yes\n"; expect ">" }
     ">"
-}`,
+}
+send "exit\n"
+expect {
+	"0%" { send "exit\n" }
+	eof {}
+}
+`,
 
 	// Attempt a commit, if failure rollback and alert user
 	"juniper-commit-rollback-failed": `
@@ -29,7 +48,27 @@ expect {
 	}
 	"commit complete"
 }
-set timeout $oldTimeout`,
+set timeout $oldTimeout
+`,
+
+	"cisco-enable-mode": `
+expect {
+	default { send_error "$hostname Enable Mode Failed - Check Password\n"; exit 1 }
+	"#" {}
+	">" {
+		send "enable\n"
+		expect "*assword"
+		send "$enablepassword\n"
+		expect {
+			"% Access denied" {
+				send_error "$hostname Enable Mode Failed - Check Password\n"
+				exit 1
+			}
+			"#"
+		}
+	}
+}
+`,
 
 	// Exit configure mode, wr mem, then continue
 	"cisco-end-wrmem": `
@@ -46,5 +85,6 @@ expect {
 	}
 	"[OK]"
 }
-set timeout $oldTimeout`,
+set timeout $oldTimeout
+`,
 }

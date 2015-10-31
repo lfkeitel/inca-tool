@@ -35,6 +35,10 @@ func IsScriptRun(err error) bool {
 func generateScriptText(block string, task *TaskFile) (string, error) {
 	main := task.Commands[block]
 	var cmdStr string
+	prompt := main.Prompt
+	if prompt == "" {
+		prompt = "#"
+	}
 
 	for _, cmd := range main.Commands {
 		switch cmd[:3] {
@@ -86,7 +90,7 @@ func generateScriptText(block string, task *TaskFile) (string, error) {
 			default:
 				cmd = strings.Replace(cmd, "\"", "\\\"", -1)
 				cmdStr += fmt.Sprintf("send \"%s\\n\"\n", cmd)
-				cmdStr += "expect \"#\"\n"
+				cmdStr += fmt.Sprintf("expect \"%s\"\n", prompt)
 			}
 		}
 	}

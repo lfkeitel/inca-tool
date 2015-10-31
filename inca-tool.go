@@ -115,10 +115,6 @@ func commandRun(taskfile string) {
 		os.Exit(1)
 	}
 
-	if task.DeviceList == "" {
-		task.DeviceList = "devices.conf"
-	}
-
 	// Load and filter devices
 	deviceList, err := devices.ParseFile(task.DeviceList)
 	if err != nil {
@@ -160,9 +156,13 @@ func commandRun(taskfile string) {
 	}
 
 	// Get the template file
-	templateFile := "templates/" + task.Commands["main"].Template + "-inca-template.tmpl"
+	template := task.Commands["main"].Template
+	if template == "" {
+		template = "expect"
+	}
+	templateFile := "templates/" + template + "-template.tmpl"
 	if _, err := os.Stat(templateFile); os.IsNotExist(err) {
-		fmt.Printf("Template not found: %s\n", task.Commands["main"].Template)
+		fmt.Printf("Template not found: %s\n", template)
 		os.Exit(1)
 	}
 
@@ -239,7 +239,7 @@ func validateTaskFile(filename string) {
 			fmt.Printf("  Device(s): %s\n", d)
 		}
 
-		fmt.Print("  ----Task Command Blocks----\n")
+		fmt.Print("\n  ----Task Command Blocks----\n")
 		for _, c := range task.Commands {
 			fmt.Printf("  Command block Name: %s\n", c.Name)
 			fmt.Printf("  Command block Type: %s\n", c.Type)

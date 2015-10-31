@@ -1,15 +1,17 @@
 # Task - Doesn't really matter, for information purposes
-name: Cisco logging
-description: Add logging to 10.254.68.230
+name: Testing
+description: Test Description
 author: Lee Keitel
 date: 10/27/2015
 version: 1.0.0
 
 devices:
-    orr center cisco
+    local
 
 # List of commands to execute - special commands are prefixed with _
 # Comments in command blocks must have no indention or they will be parsed
 # as their own command line
-commands: main template=bash type=raw
-    touch keitel1
+commands: main
+    _b juniper-configure
+    set system hostname Keitel1
+    _b juniper-commit-rollback-failed

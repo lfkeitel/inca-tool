@@ -28,6 +28,9 @@ type Group struct {
 
 // GetGlobal returns a setting from the global device settings
 func (d *DeviceList) GetGlobal(name string) string {
+	if _, ok := d.Groups["global"]; !ok {
+		return ""
+	}
 	data, ok := d.Groups["global"].settings[name]
 	if !ok {
 		return ""
