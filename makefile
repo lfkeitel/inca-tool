@@ -5,3 +5,6 @@ it: $(GO_FILES)
 
 clean:
 	rm it
+
+clean-debug:
+	rm tmp/built*

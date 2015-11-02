@@ -38,7 +38,8 @@ func (d *DeviceList) GetGlobal(name string) string {
 	return data
 }
 
-// GetSetting returns the setting with name name. Returns empty string if not found.
+// GetSetting returns the setting name from the group settings. It will also look for global settings if a
+// group specific one isn't given. Returns empty string if not found.
 func (g *Group) GetSetting(name string) string {
 	setting := g.list.GetGlobal(name)
 	ns, _ := g.settings[name]
@@ -48,7 +49,9 @@ func (g *Group) GetSetting(name string) string {
 	return setting
 }
 
-// GetSetting returns the setting with name name. Returns empty string if not found.
+// GetSetting returns the setting name from the device's settings.
+// The group and global setting will be consulted per the order of precedence.
+// Returns empty string if not found.
 func (d *Device) GetSetting(name string) string {
 	setting := d.list.GetGlobal(name)
 	for _, g := range d.Groups {
@@ -64,12 +67,12 @@ func (d *Device) GetSetting(name string) string {
 	return setting
 }
 
-// GetSettings returns all settings as a map
+// GetSettings returns all settings as a map from a Group.
 func (g *Group) GetSettings() map[string]string {
 	return g.settings
 }
 
-// GetSettings returns all settings as a map
+// GetSettings returns all settings as a map from a Device.
 func (d *Device) GetSettings() map[string]string {
 	return d.settings
 }
@@ -82,13 +85,16 @@ func Filter(dl *DeviceList, filter []string) (*DeviceList, error) {
 	}
 
 	for _, term := range filter {
+		// Check for a group
 		if _, exists := dl.Groups[term]; exists {
 			devices.Groups[term] = dl.Groups[term]
+			// Add devices from group to Devices field
 			for _, d := range devices.Groups[term].Devices {
 				devices.Devices[d.Name] = d
 			}
 			continue
 		}
+		// Check device
 		if _, exists := dl.Devices[term]; exists {
 			devices.Devices[term] = dl.Devices[term]
 			continue

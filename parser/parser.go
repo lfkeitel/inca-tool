@@ -21,6 +21,7 @@ type TaskFile struct {
 	Version     string
 	Concurrent  int32
 	Template    string
+	Prompt      string
 
 	DeviceList string
 	Devices    []string
@@ -34,7 +35,6 @@ type CommandBlock struct {
 	Name     string
 	Type     string
 	Commands []string
-	Prompt   string
 }
 
 const (
@@ -44,13 +44,32 @@ const (
 )
 
 var (
-	runningMode  = modeRoot
-	wsRegex      = regexp.MustCompile(`^(\s+)`)
-	currentSigWs = ""
+	wsRegex = regexp.MustCompile(`^(\s+)`)
 )
 
-// Parse will load the file filename and put it into a TaskFile struct or return and error if something goes wrong
-func Parse(filename string) (*TaskFile, error) {
+type Parser struct {
+	runningMode  int
+	currentSigWs string
+	mainReflect  reflect.Value
+	reflected    bool
+	task         *TaskFile
+}
+
+func NewParser() *Parser {
+	p := &Parser{}
+	p.Clean()
+	return p
+}
+
+func (p *Parser) Clean() {
+	p.runningMode = modeRoot
+	p.currentSigWs = ""
+	p.reflected = false
+	p.task = &TaskFile{}
+}
+
+// ParseFile will load the file filename and put it into a TaskFile struct or return an error if something goes wrong
+func (p *Parser) ParseFile(filename string) (*TaskFile, error) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return nil, fmt.Errorf("Task file does not exist: %s\n", filename)
 	}
@@ -60,49 +79,64 @@ func Parse(filename string) (*TaskFile, error) {
 		return nil, err
 	}
 	defer file.Close()
-	return parseReader(file)
+	if err := p.parse(file); err != nil {
+		return nil, err
+	}
+	return p.task, nil
 }
 
-func parseReader(reader io.Reader) (*TaskFile, error) {
+func (p *Parser) ParseString(data string) (*TaskFile, error) {
+	if err := p.parse(strings.NewReader(data)); err != nil {
+		return nil, err
+	}
+	return p.task, nil
+}
+
+func (p *Parser) parse(reader io.Reader) error {
+	p.Clean()
+
+	// Create scanner
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
-	task := &TaskFile{}
 	lineNum := 0
+	p.reflected = false
 
 	for scanner.Scan() {
 		// Get next line
-		line := scanner.Text()
+		lineRaw := scanner.Text()
+		lineTrimmed := strings.TrimSpace(lineRaw)
 		lineNum++
 
-		if len(line) < 1 || line[0] == '#' {
+		// Check for blank lines and comments
+		if len(lineTrimmed) < 1 || lineTrimmed[0] == '#' {
 			continue
 		}
 
-		if runningMode == modeCommand {
-			if err := parseCommandLine(line, task, lineNum); err != nil {
-				return nil, err
+		if p.runningMode == modeCommand {
+			if err := p.parseCommandLine(lineRaw, lineNum); err != nil {
+				return err
 			}
-		} else if runningMode == modeDevices {
-			if err := parseDeviceLine(line, task, lineNum); err != nil {
-				return nil, err
+		} else if p.runningMode == modeDevices {
+			if err := p.parseDeviceLine(lineRaw, lineNum); err != nil {
+				return err
 			}
 		} else {
-			if err := parseLine(line, task, lineNum); err != nil {
-				return nil, err
+			if err := p.parseLine(lineRaw, lineNum); err != nil {
+				return err
 			}
 		}
 	}
 
-	if err := finishUp(task); err != nil {
-		return nil, err
+	if err := p.finishUp(); err != nil {
+		return err
 	}
 
-	return task, nil
+	return nil
 }
 
-func parseLine(line string, task *TaskFile, lineNum int) error {
+func (p *Parser) parseLine(line string, lineNum int) error {
 	// Split only on the first colon
-	runningMode = modeRoot
+	p.runningMode = modeRoot
 	parts := strings.SplitN(line, ":", 2)
 
 	if len(parts) != 2 {
@@ -116,15 +150,18 @@ func parseLine(line string, task *TaskFile, lineNum int) error {
 
 	switch setting {
 	case "Commands":
-		return parseCommandBlockStart(setting, settingVal, task, lineNum)
+		return p.parseCommandBlockStart(setting, settingVal, lineNum)
 	case "Devices":
-		runningMode = modeDevices
+		p.runningMode = modeDevices
 		return nil
 	}
 
-	taskReflect := reflect.ValueOf(task)
+	if !p.reflected {
+		p.mainReflect = reflect.ValueOf(p.task)
+		p.reflected = true
+	}
 	// struct
-	s := taskReflect.Elem()
+	s := p.mainReflect.Elem()
 	// exported field
 	f := s.FieldByName(setting)
 	if f.IsValid() {
@@ -157,9 +194,9 @@ func parseLine(line string, task *TaskFile, lineNum int) error {
 	return nil
 }
 
-func parseCommandBlockStart(cmd, opts string, task *TaskFile, lineNum int) error {
-	if task.Commands == nil {
-		task.Commands = make(map[string]*CommandBlock)
+func (p *Parser) parseCommandBlockStart(cmd, opts string, lineNum int) error {
+	if p.task.Commands == nil {
+		p.task.Commands = make(map[string]*CommandBlock)
 	}
 
 	if opts == "" {
@@ -169,12 +206,12 @@ func parseCommandBlockStart(cmd, opts string, task *TaskFile, lineNum int) error
 	pieces := strings.Split(opts, " ")
 	name := pieces[0]
 
-	_, set := task.Commands[name]
+	_, set := p.task.Commands[name]
 	if set {
 		return fmt.Errorf("%s block with name '%s' already exists. Line %d\n", cmd, opts, lineNum)
 	}
 
-	task.Commands[name] = &CommandBlock{
+	p.task.Commands[name] = &CommandBlock{
 		Name: name,
 	}
 
@@ -185,7 +222,7 @@ func parseCommandBlockStart(cmd, opts string, task *TaskFile, lineNum int) error
 				continue
 			}
 
-			taskReflect := reflect.ValueOf(task.Commands[name])
+			taskReflect := reflect.ValueOf(p.task.Commands[name])
 			// struct
 			s := taskReflect.Elem()
 			// exported field
@@ -208,23 +245,23 @@ func parseCommandBlockStart(cmd, opts string, task *TaskFile, lineNum int) error
 			}
 		}
 	}
-	task.currentBlock = name
-	runningMode = modeCommand
+	p.task.currentBlock = name
+	p.runningMode = modeCommand
 	return nil
 }
 
-func parseCommandLine(line string, task *TaskFile, lineNum int) error {
+func (p *Parser) parseCommandLine(line string, lineNum int) error {
 	matches := wsRegex.FindStringSubmatch(line)
 	if len(matches) == 0 {
-		return parseLine(line, task, lineNum)
+		return p.parseLine(line, lineNum)
 	}
 	sigWs := matches[0]
-	current := task.Commands[task.currentBlock]
+	current := p.task.Commands[p.task.currentBlock]
 
 	if len(current.Commands) == 0 {
-		currentSigWs = sigWs
+		p.currentSigWs = sigWs
 	} else {
-		if sigWs != currentSigWs {
+		if sigWs != p.currentSigWs {
 			return fmt.Errorf("Command not in block, check indention. Line %d\n", lineNum)
 		}
 	}
@@ -234,36 +271,36 @@ func parseCommandLine(line string, task *TaskFile, lineNum int) error {
 	return nil
 }
 
-func parseDeviceLine(line string, task *TaskFile, lineNum int) error {
+func (p *Parser) parseDeviceLine(line string, lineNum int) error {
 	matches := wsRegex.FindStringSubmatch(line)
 	if len(matches) == 0 {
-		return parseLine(line, task, lineNum)
+		return p.parseLine(line, lineNum)
 	}
 	sigWs := matches[0]
 
-	if len(task.Devices) == 0 {
-		currentSigWs = sigWs
+	if len(p.task.Devices) == 0 {
+		p.currentSigWs = sigWs
 	} else {
-		if sigWs != currentSigWs {
+		if sigWs != p.currentSigWs {
 			return fmt.Errorf("Device not in block, check indention. Line %d\n", lineNum)
 		}
 	}
 
 	line = strings.TrimSpace(line)
-	task.Devices = append(task.Devices, line)
+	p.task.Devices = append(p.task.Devices, line)
 	return nil
 }
 
-func finishUp(task *TaskFile) error {
-	if task.Concurrent <= 0 {
-		task.Concurrent = 300
+func (p *Parser) finishUp() error {
+	if p.task.Concurrent <= 0 {
+		p.task.Concurrent = 300
 	}
 
-	if task.DeviceList == "" {
-		task.DeviceList = "devices.conf"
+	if p.task.DeviceList == "" {
+		p.task.DeviceList = "devices.conf"
 	}
 
-	if _, ok := task.Commands["main"]; !ok {
+	if _, ok := p.task.Commands["main"]; !ok {
 		return errors.New("No main command block declared")
 	}
 	return nil

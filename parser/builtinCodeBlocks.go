@@ -4,6 +4,7 @@ var builtinBlocks = map[string]string{
 	// Special builtin that basically stops compiling, used for testing
 	"nil": "",
 
+	// Enter Juniper configuration mode
 	"juniper-configure": `
 expect {
     "*assword:" { send_error "$hostname Authentication failed\n"; exit 1 }
@@ -17,7 +18,7 @@ send "configure\n"
 expect "#"
 `,
 
-	// Exit without commiting changes
+	// Exit Juniper without commiting changes
 	"juniper-exit-nocommit": `
 send "exit\n"
 expect {
@@ -31,7 +32,7 @@ expect {
 }
 `,
 
-	// Attempt a commit, if failure rollback and alert user
+	// Juniper - Attempt a commit, if failure rollback and alert user
 	"juniper-commit-rollback-failed": `
 set oldTimeout $timeout
 set timeout 30
@@ -51,6 +52,7 @@ expect {
 set timeout $oldTimeout
 `,
 
+	// Enter Cisco enable exec mode
 	"cisco-enable-mode": `
 expect {
 	default { send_error "$hostname Enable Mode Failed - Check Password\n"; exit 1 }

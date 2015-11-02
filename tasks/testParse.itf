@@ -5,6 +5,7 @@ author: Lee Keitel
 date: 10/27/2015
 version: 1.0.0
 
+template: bash
 devices:
     local
 

@@ -3,7 +3,6 @@ package parser
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -19,7 +18,7 @@ version: 1.0.0`
 // Concurrent setting parts
 var testFileConcurrent = []string{
 	"concurrent: 10",
-	"concurrent: 0\ntemplate: bash",
+	"concurrent: 0\ntemplate: bash\nprompt: $",
 }
 
 // Device list parts
@@ -42,7 +41,7 @@ var testFileCommandBlocks = []string{
     _b juniper-commit-rollback-failed`,
 
 	// Test settings
-	`commands: main type=raw prompt=$
+	`commands: main type=raw
     _b juniper-configure
     set system hostname Keitel1
     _b juniper-commit-rollback-failed`,
@@ -77,6 +76,7 @@ var testCasesStructs = []*TaskFile{
 		Version:     "1.0.0",
 		Concurrent:  10,
 		Template:    "",
+		Prompt:      "",
 
 		DeviceList: "inventory.conf",
 		Devices: []string{
@@ -93,7 +93,6 @@ var testCasesStructs = []*TaskFile{
 					"set system hostname Keitel1",
 					"_b juniper-commit-rollback-failed",
 				},
-				Prompt: "",
 			},
 		},
 	},
@@ -105,6 +104,7 @@ var testCasesStructs = []*TaskFile{
 		Version:     "1.0.0",
 		Concurrent:  300,
 		Template:    "bash",
+		Prompt:      "$",
 
 		DeviceList: "devices.conf",
 		Devices: []string{
@@ -122,28 +122,29 @@ var testCasesStructs = []*TaskFile{
 					"set system hostname Keitel1",
 					"_b juniper-commit-rollback-failed",
 				},
-				Prompt: "$",
 			},
 		},
 	},
 }
 
 func TestGeneralParse(t *testing.T) {
+	parser := NewParser()
+
 	for i, testCase := range testFileParses {
 		file := testFileHeader + "\n" +
 			testFileConcurrent[testCase[0]] + "\n" +
 			testFileDeviceParts[testCase[1]] + "\n" +
 			testFileCommandBlocks[testCase[2]]
-		read := strings.NewReader(file)
-		parsed, err := parseReader(read)
+
+		parsed, err := parser.ParseString(file)
 		if err == nil && !testFileParsesShouldParse[i] {
 			t.Errorf("Parse succeeded but should have failed: %s\n", file)
 		}
 		if err != nil && testFileParsesShouldParse[i] {
-			t.Errorf("Parse failed but should have succeeded: %s\n", file)
+			t.Errorf("Parse failed but should have succeeded: %s\n", err.Error())
 		}
 
-		if testFileParsesShouldParse[i] {
+		if err == nil && testFileParsesShouldParse[i] {
 			if err := compareTasks(parsed, i); err != nil {
 				t.Error(err.Error())
 			}

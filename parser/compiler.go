@@ -12,6 +12,7 @@ var (
 
 // CompileCommandText generates a script based on the parameters of the task.
 func CompileCommandText(entry string, task *TaskFile) (string, error) {
+	// Check command block exists
 	_, ok := task.Commands[entry]
 	if !ok {
 		return "", fmt.Errorf("Command block \"%s\" not declared\n", entry)
@@ -35,7 +36,7 @@ func IsScriptRun(err error) bool {
 func generateScriptText(block string, task *TaskFile) (string, error) {
 	main := task.Commands[block]
 	var cmdStr string
-	prompt := main.Prompt
+	prompt := task.Prompt
 	if prompt == "" {
 		prompt = "#"
 	}
@@ -50,22 +51,16 @@ func generateScriptText(block string, task *TaskFile) (string, error) {
 				return "", fmt.Errorf("Cannot include self in command block '%s'\n", commandBlock)
 			}
 
-			inc, ok := task.Commands[commandBlock]
+			_, ok := task.Commands[commandBlock]
 			if !ok {
 				return "", fmt.Errorf("Command block not declared '%s'\n", commandBlock)
 			}
 
-			switch inc.Type {
-			case "raw": // Include a raw code block
-				cmdStr += strings.Join(inc.Commands, "\n") + "\n"
-				break
-			default:
-				include, err := generateScriptText(commandBlock, task)
-				if err != nil {
-					return "", err
-				}
-				cmdStr += include
+			include, err := generateScriptText(commandBlock, task)
+			if err != nil {
+				return "", err
 			}
+			cmdStr += include
 			break
 		case "_b ": // Include a builtin command block
 			builtinName := cmd[3:]
@@ -87,7 +82,7 @@ func generateScriptText(block string, task *TaskFile) (string, error) {
 				cmdStr += cmd + "\n"
 				break
 			case "expect":
-			default:
+			default: // Wrap command lines with expect's send command and prompt
 				cmd = strings.Replace(cmd, "\"", "\\\"", -1)
 				cmdStr += fmt.Sprintf("send \"%s\\n\"\n", cmd)
 				cmdStr += fmt.Sprintf("expect \"%s\"\n", prompt)

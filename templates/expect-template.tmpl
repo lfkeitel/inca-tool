@@ -1,11 +1,11 @@
 #!/usr/bin/expect -f
 
 # Set variables
-set protocol {{protocol}}
-set hostname {{hostname}}
-set username {{remote_user}}
-set password {{remote_password}}
-set enablepassword {{cisco_enable}}
+set protocol "{{protocol}}"
+set hostname "{{hostname}}"
+set username "{{remote_user}}"
+set password "{{remote_password}}"
+set enablepassword "{{cisco_enable}}"
 
 if {$protocol == "ssh"} {
     # Don't check keys
