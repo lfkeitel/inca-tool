@@ -43,6 +43,9 @@ template: expect
 # device list file, Defaults to "devices.conf"
 device list: devices.conf
 
+# unique part of prompt to wait for using Expect
+prompt: #
+
 # list of groups or individual devices this task applies to
 # devices are defined in the device list file
 devices:
@@ -64,10 +67,6 @@ Command Block Settings
     - Default: expect
     - Values: expect, raw
     - Determines any extra processing needed for the block. Expect will surround the commands with the necessary items to work with Expect such as encapsulation in a send command and issuing an expect command.
-- prompt
-    - Default: #
-    - Values: Any string with no space
-    - The prompt used in expect to determine when the next command can be send.
 
 Special Commands
 ----------------
