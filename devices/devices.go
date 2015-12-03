@@ -1,6 +1,7 @@
 package devices
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -87,6 +88,9 @@ func Filter(dl *DeviceList, filter []string) (*DeviceList, error) {
 	for _, term := range filter {
 		// Check for a group
 		if _, exists := dl.Groups[term]; exists {
+			if term == "global" {
+				return nil, errors.New("Global group cannot be used.\n")
+			}
 			devices.Groups[term] = dl.Groups[term]
 			// Add devices from group to Devices field
 			for _, d := range devices.Groups[term].Devices {
