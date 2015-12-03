@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	incaVersion = "0.2.0"
+	incaVersion = "0.3.0"
 )
 
 var (
