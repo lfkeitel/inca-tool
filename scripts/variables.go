@@ -1,9 +1,29 @@
 package scripts
 
 import (
+	"io/ioutil"
+	"strings"
+
 	"github.com/dragonrider23/inca-tool/devices"
 	"github.com/dragonrider23/inca-tool/parser"
 )
+
+func insertVariables(filename string, vars map[string]string) error {
+	file, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	generated := string(file)
+	for n, v := range vars {
+		generated = strings.Replace(generated, "{{"+n+"}}", v, -1)
+	}
+
+	if err := ioutil.WriteFile(filename, []byte(generated), 0744); err != nil {
+		return err
+	}
+	return nil
+}
 
 func getVariables(host *devices.Device, task *parser.TaskFile) map[string]string {
 	argList := make(map[string]string)

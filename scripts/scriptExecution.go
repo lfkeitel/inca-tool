@@ -3,7 +3,7 @@ package scripts
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,10 +26,11 @@ var (
 
 // Execute script on devices based on the task file and extra arguments eargs.
 func Execute(devices *devices.DeviceList, task *parser.TaskFile, script string, eargs []string) error {
+	// Make sure base script exists
 	if _, err := os.Stat(script); os.IsNotExist(err) {
 		return fmt.Errorf("Script file does not exist: %s\n", script)
 	}
-
+	// Run task
 	return runTask(devices, task, script, eargs)
 }
 
@@ -50,15 +51,18 @@ func SetDebug(setting bool) {
 
 // ProcessScriptCommand processes an _s special command
 func ProcessScriptCommand(cmd string, task *parser.TaskFile, devices *devices.DeviceList) error {
+	// Separate the filename from the arguments
 	cmdPieces := strings.Split(cmd, "--")
+	// Make sure we have enough pieces
 	if cmdPieces[0] == "" {
 		return fmt.Errorf("'_s' must have a filename")
 	}
+	// Get the absolute filepath for safety
 	script, err := filepath.Abs(strings.TrimSpace(cmdPieces[0]))
 	if err != nil {
 		return err
 	}
-
+	// Build the argument list
 	var args []string
 	if len(cmdPieces) > 1 {
 		args = strings.Split(cmdPieces[1], ";")
@@ -70,58 +74,77 @@ func ProcessScriptCommand(cmd string, task *parser.TaskFile, devices *devices.De
 	return Execute(devices, task, script, args)
 }
 
-// GenerateScriptFile generates a script based on the template and data given. It returns the path to the script
-func GenerateScriptFile(template string, data string) (string, error) {
-	file, err := ioutil.ReadFile(template)
+// GenerateBaseScriptFile generates a script based on the template and data given. It returns the path to the script
+func GenerateBaseScriptFile(template string, data string) (string, error) {
+	// Generate the base script filename
+	tmpFilename := "tmp/builtBaseScript-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	// Copy the template to the base file
+	err := copyFileContents(template, tmpFilename)
 	if err != nil {
 		return "", err
 	}
-
-	generated := strings.Replace(string(file), "{{main}}", data, -1)
-	tmpFilename := "tmp/builtScript-" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	if err := ioutil.WriteFile(tmpFilename, []byte(generated), 0744); err != nil {
+	// Insert the main section
+	vars := map[string]string{"main": data}
+	if err := insertVariables(tmpFilename, vars); err != nil {
 		return "", err
 	}
+	// Return the filename for the base script
 	return tmpFilename, nil
 }
 
-func runTask(hosts *devices.DeviceList, task *parser.TaskFile, script string, eargs []string) error {
+func runTask(hosts *devices.DeviceList, task *parser.TaskFile, baseScript string, eargs []string) error {
+	// Wait group for all hosts
 	var wg sync.WaitGroup
-	lg := us.NewLimitGroup(task.Concurrent) // Used to enforce a maximum number of connections
+	// Wait group to enforce maximum concurrent hosts
+	lg := us.NewLimitGroup(task.Concurrent)
 
+	// For every host
 	for _, host := range hosts.Devices {
-		host := host
-		if verbose {
-			fmt.Printf("Configuring host %s\n", host.GetSetting("address"))
-		}
+		// Get variables
 		vars := getVariables(host, task)
-		if err := insertVariables(script, vars); err != nil {
+		if verbose {
+			fmt.Printf("Configuring host %s (%s)\n", host.Name, vars["address"])
+		}
+
+		// Generate a host specific script file
+		hostScript := fmt.Sprintf("%s-%s.sh", baseScript, host.Name)
+		err := copyFileContents(baseScript, hostScript)
+		if err != nil {
+			fmt.Printf("Error configuring host %s: %s\n", host.Name, err.Error())
+			continue
+		}
+		if err := insertVariables(hostScript, vars); err != nil {
 			return err
 		}
 
-		if debug {
+		if debug && verbose {
 			fmt.Println("Script Variables:")
 			for i, v := range vars {
 				fmt.Printf("  %s: %s\n", i, v)
 			}
 		}
 
+		// The magic, set off a goroutine to execute the script
 		wg.Add(1)
 		lg.Add(1)
-		go func() {
+		go func(script, name, address string) {
 			defer func() {
 				wg.Done()
 				lg.Done()
 			}()
 			runScript(script, eargs)
 			if verbose {
-				fmt.Printf("Finished configuring host %s\n", host.GetSetting("address"))
+				fmt.Printf("Finished configuring host %s (%s)\n", name, address)
 			}
-		}()
-
+			if !debug {
+				// Remove host specific script file
+				os.Remove(script)
+			}
+		}(hostScript, host.Name, vars["address"])
+		// Wait for the next available host execution slot
 		lg.Wait()
 	}
-
+	// Wait for everybody
 	wg.Wait()
 	return nil
 }
@@ -139,27 +162,34 @@ func runScript(sfn string, args []string) error {
 	err := cmd.Run()
 	if err != nil {
 		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
+		if debug {
+			fmt.Println(out.String())
+		}
 		return err
 	}
 	return nil
 }
 
-func insertVariables(script string, vars map[string]string) error {
-	file, err := ioutil.ReadFile(script)
+func copyFileContents(src, dst string) error {
+	var err error
+
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
 	if err != nil {
 		return err
 	}
 
-	generated := string(file)
-	for n, v := range vars {
-		if v == "" {
-			v = "\"\""
-		}
-		generated = strings.Replace(generated, "{{"+n+"}}", v, -1)
-	}
+	defer func() {
+		err = out.Close()
+	}()
 
-	if err := ioutil.WriteFile(script, []byte(generated), 0744); err != nil {
+	if _, err = io.Copy(out, in); err != nil {
 		return err
 	}
-	return nil
+	return out.Sync()
 }
