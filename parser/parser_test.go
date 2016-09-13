@@ -132,15 +132,13 @@ var testCasesStructs = []*TaskFile{
 }
 
 func TestGeneralParse(t *testing.T) {
-	parser := NewParser()
-
 	for i, testCase := range testFileParses {
 		file := testFileHeader + "\n" +
 			testFileConcurrent[testCase[0]] + "\n" +
 			testFileDeviceParts[testCase[1]] + "\n" +
 			testFileCommandBlocks[testCase[2]]
 
-		parsed, err := parser.ParseString(file)
+		parsed, err := ParseString(file)
 		if err == nil && !testFileParsesShouldParse[i] {
 			t.Errorf("Parse succeeded but should have failed: %s\n", file)
 		}

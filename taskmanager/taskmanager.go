@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dragonrider23/inca-tool/devices"
-	"github.com/dragonrider23/inca-tool/parser"
-	"github.com/dragonrider23/inca-tool/scripts"
+	"github.com/lfkeitel/inca-tool/devices"
+	"github.com/lfkeitel/inca-tool/parser"
+	"github.com/lfkeitel/inca-tool/scripts"
 )
 
 var (
@@ -37,16 +37,23 @@ func RunTaskFile(taskfile string) {
 	scripts.SetDryRun(dryRun)
 
 	// Parse the task file
-	fileParser := parser.NewParser()
-	task, err := fileParser.ParseFile(taskfile)
+	task, err := parser.ParseFile(taskfile)
 	if err != nil {
 		fmt.Println(err.Error())
-		os.Exit(1)
+		return
 	}
+
+	// Print some task information
+	fmt.Printf("Task Information:\n")
+	fmt.Printf("  Name: %s\n", task.GetMetadata("name"))
+	fmt.Printf("  Description: %s\n", task.GetMetadata("description"))
+	fmt.Printf("  Author: %s\n", task.GetMetadata("author"))
+	fmt.Printf("  Last Changed: %s\n", task.GetMetadata("date"))
+	fmt.Printf("  Version: %s\n", task.GetMetadata("version"))
 
 	// If no devices were given, print err and exit
 	if len(task.Devices) == 0 {
-		fmt.Println("No devices were specified in the task file. Exiting.")
+		fmt.Println("No devices were given in the task file. Exiting.")
 		return
 	}
 
@@ -54,28 +61,20 @@ func RunTaskFile(taskfile string) {
 	deviceList, err := devices.ParseFile(task.DeviceList)
 	if err != nil {
 		fmt.Printf("Error loading devices: %s\n", err.Error())
-		os.Exit(1)
+		return
 	}
 
 	deviceList, err = devices.Filter(deviceList, task.Devices)
 	if err != nil {
 		fmt.Printf("Error: %s\n", err.Error())
-		os.Exit(1)
+		return
 	}
 
 	// If no devices will be affected, exit
 	if len(deviceList.Devices) == 0 {
-		fmt.Println("Due to filtering, no devices would be affected. Exiting.")
+		fmt.Println("No devices match running task. Exiting.")
 		return
 	}
-
-	// Print some task information
-	fmt.Printf("Task Information:\n")
-	fmt.Printf("  Name: %s\n", task.Name)
-	fmt.Printf("  Description: %s\n", task.Description)
-	fmt.Printf("  Author: %s\n", task.Author)
-	fmt.Printf("  Last Changed: %s\n", task.Date)
-	fmt.Printf("  Version: %s\n", task.Version)
 
 	// Compile the script text
 	text, err := parser.CompileCommandText("main", task)
@@ -85,10 +84,10 @@ func RunTaskFile(taskfile string) {
 			if err := scripts.ProcessScriptCommand(text, task, deviceList); err != nil {
 				fmt.Printf("Error executing task: %s\n", err.Error())
 			}
-			os.Exit(1)
+			return
 		}
 		fmt.Printf("Error compiling script: %s\n", err.Error())
-		os.Exit(1)
+		return
 	}
 
 	// Get the template file
@@ -99,14 +98,14 @@ func RunTaskFile(taskfile string) {
 	templateFile := "templates/" + template + "-template.tmpl"
 	if _, err := os.Stat(templateFile); os.IsNotExist(err) {
 		fmt.Printf("Template not found: %s\n", template)
-		os.Exit(1)
+		return
 	}
 
 	// Generate an executable script file
 	scriptFilename, err := scripts.GenerateBaseScriptFile(templateFile, text)
 	if err != nil {
 		fmt.Printf("Error generating script: %s\n", err.Error())
-		os.Exit(1)
+		return
 	}
 
 	if debug {
@@ -117,7 +116,7 @@ func RunTaskFile(taskfile string) {
 	err = scripts.Execute(deviceList, task, scriptFilename, nil)
 	if err != nil {
 		fmt.Printf("Error executing task: %s\n", err.Error())
-		os.Exit(1)
+		return
 	}
 
 	if !debug {
@@ -143,8 +142,7 @@ func RunTaskFile(taskfile string) {
 }
 
 func ValidateTaskFile(filename string) {
-	fileParser := parser.NewParser()
-	task, err := fileParser.ParseFile(filename)
+	task, err := parser.ParseFile(filename)
 	if err != nil {
 		fmt.Printf("\nErrors found in \"%s\"\n", filename)
 		fmt.Printf("   %s\n", err.Error())
@@ -162,12 +160,11 @@ func ValidateTaskFile(filename string) {
 	}
 
 	if verbose {
-		fmt.Printf("\nVerbose Information for Task \"%s\"\n", task.Name)
-		fmt.Printf("  Name: %s\n", task.Name)
-		fmt.Printf("  Description: %s\n", task.Description)
-		fmt.Printf("  Author: %s\n", task.Author)
-		fmt.Printf("  Date: %s\n", task.Date)
-		fmt.Printf("  Version: %s\n\n", task.Version)
+		fmt.Printf("\nVerbose Information for Task \"%s\"\n", task.GetMetadata("name"))
+		fmt.Printf("  Description: %s\n", task.GetMetadata("description"))
+		fmt.Printf("  Author: %s\n", task.GetMetadata("author"))
+		fmt.Printf("  Last Changed: %s\n", task.GetMetadata("date"))
+		fmt.Printf("  Version: %s\n", task.GetMetadata("version"))
 
 		fmt.Printf("  Concurrent Devices: %d\n", task.Concurrent)
 		fmt.Printf("  Template: %s\n", task.Template)
@@ -189,5 +186,5 @@ func ValidateTaskFile(filename string) {
 			fmt.Println("  ---------------")
 		}
 	}
-	fmt.Printf("The task named \"%s\" has no syntax errors.\n", task.Name)
+	fmt.Printf("The task named \"%s\" has no syntax errors.\n", task.GetMetadata("name"))
 }

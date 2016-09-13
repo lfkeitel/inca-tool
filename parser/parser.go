@@ -44,10 +44,8 @@ type CommandBlock struct {
 }
 
 func (t *TaskFile) GetMetadata(s string) string {
-	if data, ok := t.Metadata[s]; ok {
-		return data
-	}
-	return ""
+	data, _ := t.Metadata[s]
+	return data
 }
 
 const (
@@ -83,7 +81,7 @@ func (p *Parser) Clean() {
 }
 
 // ParseFile will load the file filename and put it into a TaskFile struct or return an error if something goes wrong
-func (p *Parser) ParseFile(filename string) (*TaskFile, error) {
+func ParseFile(filename string) (*TaskFile, error) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return nil, fmt.Errorf("Task file does not exist: %s\n", filename)
 	}
@@ -93,13 +91,15 @@ func (p *Parser) ParseFile(filename string) (*TaskFile, error) {
 		return nil, err
 	}
 	defer file.Close()
+	p := NewParser()
 	if err := p.parse(file); err != nil {
 		return nil, err
 	}
 	return p.task, nil
 }
 
-func (p *Parser) ParseString(data string) (*TaskFile, error) {
+func ParseString(data string) (*TaskFile, error) {
+	p := NewParser()
 	if err := p.parse(strings.NewReader(data)); err != nil {
 		return nil, err
 	}
