@@ -58,7 +58,7 @@ func RunTaskFile(taskfile string) {
 	}
 
 	// Load and filter devices
-	deviceList, err := devices.ParseFile(task.DeviceList)
+	deviceList, err := devices.ParseFile(task.Inventory)
 	if err != nil {
 		fmt.Printf("Error loading devices: %s\n", err.Error())
 		return
@@ -160,7 +160,7 @@ func ValidateTaskFile(filename string) {
 	}
 
 	if verbose {
-		fmt.Printf("\nVerbose Information for Task \"%s\"\n", task.GetMetadata("name"))
+		fmt.Printf("\nInformation for Task \"%s\"\n", task.GetMetadata("name"))
 		fmt.Printf("  Description: %s\n", task.GetMetadata("description"))
 		fmt.Printf("  Author: %s\n", task.GetMetadata("author"))
 		fmt.Printf("  Last Changed: %s\n", task.GetMetadata("date"))
@@ -168,9 +168,17 @@ func ValidateTaskFile(filename string) {
 
 		fmt.Printf("  Concurrent Devices: %d\n", task.Concurrent)
 		fmt.Printf("  Template: %s\n", task.Template)
-		fmt.Printf("  Devices File: %s\n\n", task.DeviceList)
+		fmt.Printf("  Inventory File: %s\n\n", task.Inventory)
 
-		fmt.Print("  ----Task Device Block----\n")
+		fmt.Print("  ----Custom Data----\n")
+		for k, v := range task.Metadata {
+			if k[0] != '_' {
+				continue
+			}
+			fmt.Printf("  %s: %s\n", k[1:], v)
+		}
+
+		fmt.Print("\n  ----Task Device Block----\n")
 		for _, d := range task.Devices {
 			fmt.Printf("  Device(s): %s\n", d)
 		}

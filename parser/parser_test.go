@@ -80,7 +80,7 @@ var testCasesStructs = []*TaskFile{
 		Template:   "",
 		Prompt:     "",
 
-		DeviceList: "inventory.conf",
+		Inventory: "inventory.conf",
 		Devices: []string{
 			"local",
 		},
@@ -110,7 +110,7 @@ var testCasesStructs = []*TaskFile{
 		Template:   "bash",
 		Prompt:     "$",
 
-		DeviceList: "devices.conf",
+		Inventory: "devices.conf",
 		Devices: []string{
 			"local",
 			"juniper",

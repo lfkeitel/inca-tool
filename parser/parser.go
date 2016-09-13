@@ -13,41 +13,6 @@ import (
 	"strings"
 )
 
-var standardMetadata = []string{
-	"name",
-	"description",
-	"author",
-	"date",
-	"version",
-}
-
-// TaskFile represents a parsed task file
-type TaskFile struct {
-	Metadata map[string]string
-
-	Concurrent int32
-	Template   string
-	Prompt     string
-
-	DeviceList string
-	Devices    []string
-
-	currentBlock string
-	Commands     map[string]*CommandBlock
-}
-
-// CommandBlock contains all the settings for a block of commands
-type CommandBlock struct {
-	Name     string
-	Type     string
-	Commands []string
-}
-
-func (t *TaskFile) GetMetadata(s string) string {
-	data, _ := t.Metadata[s]
-	return data
-}
-
 const (
 	modeRoot = iota
 	modeCommand
@@ -204,7 +169,7 @@ func (p *Parser) parseLine(line []byte, lineNum int) error {
 
 	// Custom data
 	if setting[0] == '$' {
-		p.task.Metadata[string(setting[1:])] = string(settingVal)
+		p.task.Metadata["_"+string(setting[1:])] = string(settingVal)
 		return nil
 	}
 
@@ -318,8 +283,8 @@ func (p *Parser) finishUp() error {
 		p.task.Concurrent = 300
 	}
 
-	if p.task.DeviceList == "" {
-		p.task.DeviceList = "devices.conf"
+	if p.task.Inventory == "" {
+		p.task.Inventory = "devices.conf"
 	}
 
 	if _, ok := p.task.Commands["main"]; !ok {
