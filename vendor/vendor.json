@@ -1,0 +1,13 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "ITTPUF7rKOUxkzHMzYzb3E4sHtI=",
+			"path": "github.com/lfkeitel/utils/sync",
+			"revision": "9fcb89c80c968f85a0f1cf6468ab298bb2d30fc5",
+			"revisionTime": "2015-08-23T02:19:25Z"
+		}
+	],
+	"rootPath": "github.com/lfkeitel/inca-tool"
+}

@@ -41,7 +41,7 @@ concurrent: 5
 template: expect
 
 # device list file, Defaults to "devices.conf"
-device list: devices.conf
+inventory: devices.conf
 
 # unique part of prompt to wait for when using Expect
 prompt: #
