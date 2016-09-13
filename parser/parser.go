@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -12,16 +13,21 @@ import (
 	"strings"
 )
 
+var standardMetadata = []string{
+	"name",
+	"description",
+	"author",
+	"date",
+	"version",
+}
+
 // TaskFile represents a parsed task file
 type TaskFile struct {
-	Name        string
-	Description string
-	Author      string
-	Date        string
-	Version     string
-	Concurrent  int32
-	Template    string
-	Prompt      string
+	Metadata map[string]string
+
+	Concurrent int32
+	Template   string
+	Prompt     string
 
 	DeviceList string
 	Devices    []string
@@ -35,6 +41,11 @@ type CommandBlock struct {
 	Name     string
 	Type     string
 	Commands []string
+}
+
+func (t *TaskFile) GetMetadata(s string) string {
+	data, _ := t.Metadata[s]
+	return data
 }
 
 const (
@@ -66,10 +77,11 @@ func (p *Parser) Clean() {
 	p.currentSigWs = ""
 	p.reflected = false
 	p.task = &TaskFile{}
+	p.task.Metadata = make(map[string]string)
 }
 
 // ParseFile will load the file filename and put it into a TaskFile struct or return an error if something goes wrong
-func (p *Parser) ParseFile(filename string) (*TaskFile, error) {
+func ParseFile(filename string) (*TaskFile, error) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return nil, fmt.Errorf("Task file does not exist: %s\n", filename)
 	}
@@ -79,13 +91,15 @@ func (p *Parser) ParseFile(filename string) (*TaskFile, error) {
 		return nil, err
 	}
 	defer file.Close()
+	p := NewParser()
 	if err := p.parse(file); err != nil {
 		return nil, err
 	}
 	return p.task, nil
 }
 
-func (p *Parser) ParseString(data string) (*TaskFile, error) {
+func ParseString(data string) (*TaskFile, error) {
+	p := NewParser()
 	if err := p.parse(strings.NewReader(data)); err != nil {
 		return nil, err
 	}
@@ -103,8 +117,8 @@ func (p *Parser) parse(reader io.Reader) error {
 
 	for scanner.Scan() {
 		// Get next line
-		lineRaw := scanner.Text()
-		lineTrimmed := strings.TrimSpace(lineRaw)
+		lineRaw := scanner.Bytes()
+		lineTrimmed := bytes.TrimSpace(lineRaw)
 		lineNum++
 
 		// Check for blank lines and comments
@@ -134,24 +148,21 @@ func (p *Parser) parse(reader io.Reader) error {
 	return nil
 }
 
-func (p *Parser) parseLine(line string, lineNum int) error {
+func (p *Parser) parseLine(line []byte, lineNum int) error {
 	// Split only on the first colon
 	p.runningMode = modeRoot
-	parts := strings.SplitN(line, ":", 2)
+	parts := bytes.SplitN(line, []byte(":"), 2)
 
 	if len(parts) != 2 {
 		return fmt.Errorf("Error on line %d of task file\n", lineNum)
 	}
-	setting := strings.ToLower(parts[0])
-	setting = strings.Title(setting)
-	setting = strings.Replace(setting, " ", "", -1)
-	setting = strings.TrimSpace(setting)
-	settingVal := strings.TrimSpace(parts[1])
+	setting := parts[0]
+	settingVal := bytes.TrimSpace(parts[1])
 
-	switch setting {
-	case "Commands":
+	if bytes.Equal(setting, []byte("commands")) {
 		return p.parseCommandBlockStart(setting, settingVal, lineNum)
-	case "Devices":
+	}
+	if bytes.Equal(setting, []byte("devices")) {
 		p.runningMode = modeDevices
 		return nil
 	}
@@ -163,7 +174,7 @@ func (p *Parser) parseLine(line string, lineNum int) error {
 	// struct
 	s := p.mainReflect.Elem()
 	// exported field
-	f := s.FieldByName(setting)
+	f := s.FieldByName(normalizeKeyToField(setting))
 	if f.IsValid() {
 		// A Value can be changed only if it is
 		// addressable and was not obtained by
@@ -174,37 +185,48 @@ func (p *Parser) parseLine(line string, lineNum int) error {
 				if f.String() != "" {
 					return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", setting, lineNum)
 				}
-				f.SetString(settingVal)
+				f.SetString(string(settingVal))
 			} else if f.Kind() == reflect.Int32 {
 				if f.Int() > 0 {
 					return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", setting, lineNum)
 				}
 
-				i, err := strconv.Atoi(settingVal)
+				i, err := strconv.Atoi(string(settingVal))
 				if err != nil {
 					return fmt.Errorf("Expected integer on line %d\n", lineNum)
 				}
 				f.SetInt(int64(i))
 			}
 		}
-	} else {
-		return fmt.Errorf("Invalid setting \"%s\". Line %d\n", setting, lineNum)
+
+		return nil
 	}
 
-	return nil
+	// Custom data
+	if setting[0] == '$' {
+		p.task.Metadata[string(setting[1:])] = string(settingVal)
+		return nil
+	}
+
+	// Standard metadata
+	if isStandardMetadata(string(setting)) {
+		p.task.Metadata[string(setting)] = string(settingVal)
+		return nil
+	}
+	return fmt.Errorf("Invalid setting \"%s\". Line %d\n", setting, lineNum)
 }
 
-func (p *Parser) parseCommandBlockStart(cmd, opts string, lineNum int) error {
+func (p *Parser) parseCommandBlockStart(cmd, opts []byte, lineNum int) error {
 	if p.task.Commands == nil {
 		p.task.Commands = make(map[string]*CommandBlock)
 	}
 
-	if opts == "" {
+	if bytes.Equal(opts, []byte("")) {
 		return fmt.Errorf("%s blocks must have a name. Line %d\n", cmd, lineNum)
 	}
 
-	pieces := strings.Split(opts, " ")
-	name := pieces[0]
+	pieces := bytes.Split(opts, []byte(" "))
+	name := string(pieces[0])
 
 	_, set := p.task.Commands[name]
 	if set {
@@ -217,7 +239,7 @@ func (p *Parser) parseCommandBlockStart(cmd, opts string, lineNum int) error {
 
 	if len(pieces) > 1 {
 		for _, setting := range pieces[1:] {
-			parts := strings.Split(setting, "=")
+			parts := bytes.Split(setting, []byte("="))
 			if len(parts) < 2 {
 				continue
 			}
@@ -226,7 +248,7 @@ func (p *Parser) parseCommandBlockStart(cmd, opts string, lineNum int) error {
 			// struct
 			s := taskReflect.Elem()
 			// exported field
-			f := s.FieldByName(strings.Title(parts[0]))
+			f := s.FieldByName(string(bytes.Title(parts[0])))
 			if f.IsValid() {
 				// A Value can be changed only if it is
 				// addressable and was not obtained by
@@ -237,7 +259,7 @@ func (p *Parser) parseCommandBlockStart(cmd, opts string, lineNum int) error {
 						if f.String() != "" {
 							return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", parts[0], lineNum)
 						}
-						f.SetString(parts[1])
+						f.SetString(string(parts[1]))
 					}
 				}
 			} else {
@@ -250,12 +272,12 @@ func (p *Parser) parseCommandBlockStart(cmd, opts string, lineNum int) error {
 	return nil
 }
 
-func (p *Parser) parseCommandLine(line string, lineNum int) error {
-	matches := wsRegex.FindStringSubmatch(line)
+func (p *Parser) parseCommandLine(line []byte, lineNum int) error {
+	matches := wsRegex.FindSubmatch(line)
 	if len(matches) == 0 {
 		return p.parseLine(line, lineNum)
 	}
-	sigWs := matches[0]
+	sigWs := string(matches[0])
 	current := p.task.Commands[p.task.currentBlock]
 
 	if len(current.Commands) == 0 {
@@ -266,17 +288,17 @@ func (p *Parser) parseCommandLine(line string, lineNum int) error {
 		}
 	}
 
-	line = strings.TrimSpace(line)
-	current.Commands = append(current.Commands, line)
+	line = bytes.TrimSpace(line)
+	current.Commands = append(current.Commands, string(line))
 	return nil
 }
 
-func (p *Parser) parseDeviceLine(line string, lineNum int) error {
-	matches := wsRegex.FindStringSubmatch(line)
+func (p *Parser) parseDeviceLine(line []byte, lineNum int) error {
+	matches := wsRegex.FindSubmatch(line)
 	if len(matches) == 0 {
 		return p.parseLine(line, lineNum)
 	}
-	sigWs := matches[0]
+	sigWs := string(matches[0])
 
 	if len(p.task.Devices) == 0 {
 		p.currentSigWs = sigWs
@@ -286,8 +308,8 @@ func (p *Parser) parseDeviceLine(line string, lineNum int) error {
 		}
 	}
 
-	line = strings.TrimSpace(line)
-	p.task.Devices = append(p.task.Devices, line)
+	line = bytes.TrimSpace(line)
+	p.task.Devices = append(p.task.Devices, string(line))
 	return nil
 }
 
@@ -304,4 +326,21 @@ func (p *Parser) finishUp() error {
 		return errors.New("No main command block declared")
 	}
 	return nil
+}
+
+func isStandardMetadata(s string) bool {
+	for _, m := range standardMetadata {
+		if s == m {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeKeyToField(k []byte) string {
+	k = bytes.ToLower(k)
+	k = bytes.Title(k)
+	k = bytes.Replace(k, []byte(" "), []byte(""), -1)
+	k = bytes.TrimSpace(k)
+	return string(k)
 }

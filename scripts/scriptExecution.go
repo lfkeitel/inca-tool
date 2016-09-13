@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dragonrider23/inca-tool/devices"
-	"github.com/dragonrider23/inca-tool/parser"
+	"github.com/lfkeitel/inca-tool/devices"
+	"github.com/lfkeitel/inca-tool/parser"
 
-	us "github.com/dragonrider23/utils/sync"
+	us "github.com/lfkeitel/utils/sync"
 )
 
 var (
@@ -161,7 +161,7 @@ func runScript(sfn string, args []string) error {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
+		fmt.Printf("%s: %s\n", err, stderr.String())
 		if debug {
 			fmt.Println(out.String())
 		}

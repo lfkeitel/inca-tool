@@ -4,8 +4,8 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/dragonrider23/inca-tool/devices"
-	"github.com/dragonrider23/inca-tool/parser"
+	"github.com/lfkeitel/inca-tool/devices"
+	"github.com/lfkeitel/inca-tool/parser"
 )
 
 func insertVariables(filename string, vars map[string]string) error {
