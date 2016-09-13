@@ -69,14 +69,16 @@ var testFileParsesShouldParse = []bool{
 // Comparision of passing tests
 var testCasesStructs = []*TaskFile{
 	&TaskFile{
-		Name:        "Testing",
-		Description: "Test Description",
-		Author:      "Lee Keitel",
-		Date:        "10/27/2015",
-		Version:     "1.0.0",
-		Concurrent:  10,
-		Template:    "",
-		Prompt:      "",
+		Metadata: map[string]string{
+			"name":        "Testing",
+			"description": "Test Description",
+			"author":      "Lee Keitel",
+			"date":        "10/27/2015",
+			"version":     "1.0.0",
+		},
+		Concurrent: 10,
+		Template:   "",
+		Prompt:     "",
 
 		DeviceList: "inventory.conf",
 		Devices: []string{
@@ -97,14 +99,16 @@ var testCasesStructs = []*TaskFile{
 		},
 	},
 	&TaskFile{
-		Name:        "Testing",
-		Description: "Test Description",
-		Author:      "Lee Keitel",
-		Date:        "10/27/2015",
-		Version:     "1.0.0",
-		Concurrent:  300,
-		Template:    "bash",
-		Prompt:      "$",
+		Metadata: map[string]string{
+			"name":        "Testing",
+			"description": "Test Description",
+			"author":      "Lee Keitel",
+			"date":        "10/27/2015",
+			"version":     "1.0.0",
+		},
+		Concurrent: 300,
+		Template:   "bash",
+		Prompt:     "$",
 
 		DeviceList: "devices.conf",
 		Devices: []string{
