@@ -23,7 +23,7 @@ var testFileConcurrent = []string{
 
 // Device list parts
 var testFileDeviceParts = []string{
-	`device list: inventory.conf
+	`inventory: inventory.conf
 devices:
     local`,
 
@@ -110,7 +110,7 @@ var testCasesStructs = []*TaskFile{
 		Template:   "bash",
 		Prompt:     "$",
 
-		Inventory: "devices.conf",
+		Inventory: "",
 		Devices: []string{
 			"local",
 			"juniper",

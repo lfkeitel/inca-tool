@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -16,6 +17,7 @@ var (
 )
 
 func ParseFile(filename string) (*DeviceList, error) {
+	filename, _ = filepath.Abs(filename)
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return nil, fmt.Errorf("Inventory file does not exist: %s\n", filename)
 	}
@@ -25,15 +27,20 @@ func ParseFile(filename string) (*DeviceList, error) {
 		return nil, err
 	}
 	defer file.Close()
-	return parse(file)
+	return parse(file, filename)
 }
 
 func ParseString(data string) (*DeviceList, error) {
-	return parse(strings.NewReader(data))
+	return parse(strings.NewReader(data), "")
 }
 
-func parse(reader io.Reader) (*DeviceList, error) {
-	scanner := bufio.NewScanner(reader)
+func parse(reader io.Reader, filename string) (*DeviceList, error) {
+	resolved, err := resolveIncludes(reader, filename)
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(resolved)
 	scanner.Split(bufio.ScanLines)
 	devices := &DeviceList{
 		Groups:  make(map[string]*Group),
@@ -130,4 +137,49 @@ func getLineSettings(line []byte) map[string]string {
 		sets[string(setting[1])] = string(value)
 	}
 	return sets
+}
+
+func resolveIncludes(r io.Reader, filename string) (*bytes.Buffer, error) {
+	scanner := bufio.NewScanner(r)
+	scanner.Split(bufio.ScanLines)
+	buf := &bytes.Buffer{}
+	linenum := 0
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		linenum++
+
+		if len(line) == 0 {
+			continue
+		}
+
+		if line[0] != '@' {
+			buf.Write(line)
+			buf.WriteString("\n")
+			continue
+		}
+
+		incFilename, _ := filepath.Abs(string(line[1:]))
+		if incFilename == filename {
+			fmt.Printf("File %s included itself at line %d, skipping\n", filename, linenum)
+			continue
+		}
+		if _, err := os.Stat(incFilename); os.IsNotExist(err) {
+			return nil, fmt.Errorf("Inventory file does not exist: %s\n", incFilename)
+		}
+
+		file, err := os.Open(incFilename)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+		i, err := resolveIncludes(file, incFilename)
+		if err != nil {
+			return nil, err
+		}
+		file.Close()
+		buf.Write(i.Bytes())
+		buf.WriteString("\n")
+	}
+	return buf, nil
 }

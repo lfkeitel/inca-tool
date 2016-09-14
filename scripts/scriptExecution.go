@@ -140,7 +140,7 @@ func runTask(hosts *devices.DeviceList, task *parser.TaskFile, baseScript string
 				// Remove host specific script file
 				os.Remove(script)
 			}
-		}(hostScript, host.Name, vars["address"])
+		}(hostScript, host.Name, vars["hostname"])
 		// Wait for the next available host execution slot
 		lg.Wait()
 	}

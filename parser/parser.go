@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -29,6 +30,8 @@ type Parser struct {
 	mainReflect  reflect.Value
 	reflected    bool
 	task         *TaskFile
+	currentLine  int
+	currentFile  string
 }
 
 func NewParser() *Parser {
@@ -43,10 +46,12 @@ func (p *Parser) Clean() {
 	p.reflected = false
 	p.task = &TaskFile{}
 	p.task.Metadata = make(map[string]string)
+	p.currentLine = 0
 }
 
 // ParseFile will load the file filename and put it into a TaskFile struct or return an error if something goes wrong
 func ParseFile(filename string) (*TaskFile, error) {
+	filename, _ = filepath.Abs(filename)
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return nil, fmt.Errorf("Task file does not exist: %s\n", filename)
 	}
@@ -57,7 +62,7 @@ func ParseFile(filename string) (*TaskFile, error) {
 	}
 	defer file.Close()
 	p := NewParser()
-	if err := p.parse(file); err != nil {
+	if err := p.parse(file, filename); err != nil {
 		return nil, err
 	}
 	return p.task, nil
@@ -65,45 +70,43 @@ func ParseFile(filename string) (*TaskFile, error) {
 
 func ParseString(data string) (*TaskFile, error) {
 	p := NewParser()
-	if err := p.parse(strings.NewReader(data)); err != nil {
+	if err := p.parse(strings.NewReader(data), ""); err != nil {
 		return nil, err
 	}
 	return p.task, nil
 }
 
-func (p *Parser) parse(reader io.Reader) error {
+func (p *Parser) parseIncludeFile(filename string) error {
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return fmt.Errorf("Task file does not exist: %s\n", filename)
+	}
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+
+	if err := p.scan(scanner); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *Parser) parse(reader io.Reader, filename string) error {
 	p.Clean()
 
 	// Create scanner
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
-	lineNum := 0
 	p.reflected = false
+	p.currentFile = filename
 
-	for scanner.Scan() {
-		// Get next line
-		lineRaw := scanner.Bytes()
-		lineTrimmed := bytes.TrimSpace(lineRaw)
-		lineNum++
-
-		// Check for blank lines and comments
-		if len(lineTrimmed) < 1 || lineTrimmed[0] == '#' {
-			continue
-		}
-
-		if p.runningMode == modeCommand {
-			if err := p.parseCommandLine(lineRaw, lineNum); err != nil {
-				return err
-			}
-		} else if p.runningMode == modeDevices {
-			if err := p.parseDeviceLine(lineRaw, lineNum); err != nil {
-				return err
-			}
-		} else {
-			if err := p.parseLine(lineRaw, lineNum); err != nil {
-				return err
-			}
-		}
+	if err := p.scan(scanner); err != nil {
+		return err
 	}
 
 	if err := p.finishUp(); err != nil {
@@ -113,19 +116,67 @@ func (p *Parser) parse(reader io.Reader) error {
 	return nil
 }
 
-func (p *Parser) parseLine(line []byte, lineNum int) error {
+func (p *Parser) scan(scanner *bufio.Scanner) error {
+	for scanner.Scan() {
+		// Get next line
+		lineRaw := scanner.Bytes()
+		lineTrimmed := bytes.TrimSpace(lineRaw)
+		p.currentLine++
+
+		// Check for blank lines and comments
+		if len(lineTrimmed) < 1 || lineTrimmed[0] == '#' {
+			continue
+		}
+
+		if lineTrimmed[0] == '@' {
+			incFilename, _ := filepath.Abs(string(lineTrimmed[1:]))
+			if incFilename == p.currentFile {
+				return fmt.Errorf("Task file %s included itself on line %d", p.currentFile, p.currentLine)
+			}
+			// Save current state
+			curLine := p.currentLine
+			curFile := p.currentFile
+			p.currentLine = 0
+			p.currentFile = incFilename
+			if err := p.parseIncludeFile(incFilename); err != nil {
+				return err
+			}
+			// Restore state
+			p.currentLine = curLine
+			p.currentFile = curFile
+			continue
+		}
+
+		if p.runningMode == modeCommand {
+			if err := p.parseCommandLine(lineRaw); err != nil {
+				return err
+			}
+		} else if p.runningMode == modeDevices {
+			if err := p.parseDeviceLine(lineRaw); err != nil {
+				return err
+			}
+		} else {
+			if err := p.parseLine(lineRaw); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (p *Parser) parseLine(line []byte) error {
 	// Split only on the first colon
 	p.runningMode = modeRoot
 	parts := bytes.SplitN(line, []byte(":"), 2)
 
 	if len(parts) != 2 {
-		return fmt.Errorf("Error on line %d of task file\n", lineNum)
+		return fmt.Errorf("Error on line %d of task file", p.currentLine)
 	}
 	setting := parts[0]
 	settingVal := bytes.TrimSpace(parts[1])
 
 	if bytes.Equal(setting, []byte("commands")) {
-		return p.parseCommandBlockStart(setting, settingVal, lineNum)
+		return p.parseCommandBlockStart(setting, settingVal)
 	}
 	if bytes.Equal(setting, []byte("devices")) {
 		p.runningMode = modeDevices
@@ -148,17 +199,17 @@ func (p *Parser) parseLine(line []byte, lineNum int) error {
 			// change value of N
 			if f.Kind() == reflect.String {
 				if f.String() != "" {
-					return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", setting, lineNum)
+					return fmt.Errorf("Cannot redeclare setting '%s'. Line %d", setting, p.currentLine)
 				}
 				f.SetString(string(settingVal))
 			} else if f.Kind() == reflect.Int32 {
 				if f.Int() > 0 {
-					return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", setting, lineNum)
+					return fmt.Errorf("Cannot redeclare setting '%s'. Line %d", setting, p.currentLine)
 				}
 
 				i, err := strconv.Atoi(string(settingVal))
 				if err != nil {
-					return fmt.Errorf("Expected integer on line %d\n", lineNum)
+					return fmt.Errorf("Expected integer on line %d", p.currentLine)
 				}
 				f.SetInt(int64(i))
 			}
@@ -178,16 +229,16 @@ func (p *Parser) parseLine(line []byte, lineNum int) error {
 		p.task.Metadata[string(setting)] = string(settingVal)
 		return nil
 	}
-	return fmt.Errorf("Invalid setting \"%s\". Line %d\n", setting, lineNum)
+	return fmt.Errorf("Invalid setting \"%s\". Line %d", setting, p.currentLine)
 }
 
-func (p *Parser) parseCommandBlockStart(cmd, opts []byte, lineNum int) error {
+func (p *Parser) parseCommandBlockStart(cmd, opts []byte) error {
 	if p.task.Commands == nil {
 		p.task.Commands = make(map[string]*CommandBlock)
 	}
 
 	if bytes.Equal(opts, []byte("")) {
-		return fmt.Errorf("%s blocks must have a name. Line %d\n", cmd, lineNum)
+		return fmt.Errorf("%s blocks must have a name. Line %d", cmd, p.currentLine)
 	}
 
 	pieces := bytes.Split(opts, []byte(" "))
@@ -195,7 +246,7 @@ func (p *Parser) parseCommandBlockStart(cmd, opts []byte, lineNum int) error {
 
 	_, set := p.task.Commands[name]
 	if set {
-		return fmt.Errorf("%s block with name '%s' already exists. Line %d\n", cmd, opts, lineNum)
+		return fmt.Errorf("%s block with name '%s' already exists. Line %d", cmd, opts, p.currentLine)
 	}
 
 	p.task.Commands[name] = &CommandBlock{
@@ -222,13 +273,13 @@ func (p *Parser) parseCommandBlockStart(cmd, opts []byte, lineNum int) error {
 					// change value of N
 					if f.Kind() == reflect.String {
 						if f.String() != "" {
-							return fmt.Errorf("Cannot redeclare setting '%s'. Line %d\n", parts[0], lineNum)
+							return fmt.Errorf("Cannot redeclare setting '%s'. Line %d", parts[0], p.currentLine)
 						}
 						f.SetString(string(parts[1]))
 					}
 				}
 			} else {
-				return fmt.Errorf("Invalid block setting \"%s\". Line %d\n", parts[0], lineNum)
+				return fmt.Errorf("Invalid block setting \"%s\". Line %d", parts[0], p.currentLine)
 			}
 		}
 	}
@@ -237,10 +288,10 @@ func (p *Parser) parseCommandBlockStart(cmd, opts []byte, lineNum int) error {
 	return nil
 }
 
-func (p *Parser) parseCommandLine(line []byte, lineNum int) error {
+func (p *Parser) parseCommandLine(line []byte) error {
 	matches := wsRegex.FindSubmatch(line)
 	if len(matches) == 0 {
-		return p.parseLine(line, lineNum)
+		return p.parseLine(line)
 	}
 	sigWs := string(matches[0])
 	current := p.task.Commands[p.task.currentBlock]
@@ -249,7 +300,7 @@ func (p *Parser) parseCommandLine(line []byte, lineNum int) error {
 		p.currentSigWs = sigWs
 	} else {
 		if sigWs != p.currentSigWs {
-			return fmt.Errorf("Command not in block, check indention. Line %d\n", lineNum)
+			return fmt.Errorf("Command not in block, check indention. Line %d", p.currentLine)
 		}
 	}
 
@@ -258,10 +309,10 @@ func (p *Parser) parseCommandLine(line []byte, lineNum int) error {
 	return nil
 }
 
-func (p *Parser) parseDeviceLine(line []byte, lineNum int) error {
+func (p *Parser) parseDeviceLine(line []byte) error {
 	matches := wsRegex.FindSubmatch(line)
 	if len(matches) == 0 {
-		return p.parseLine(line, lineNum)
+		return p.parseLine(line)
 	}
 	sigWs := string(matches[0])
 
@@ -269,7 +320,7 @@ func (p *Parser) parseDeviceLine(line []byte, lineNum int) error {
 		p.currentSigWs = sigWs
 	} else {
 		if sigWs != p.currentSigWs {
-			return fmt.Errorf("Device not in block, check indention. Line %d\n", lineNum)
+			return fmt.Errorf("Device not in block, check indention. Line %d", p.currentLine)
 		}
 	}
 

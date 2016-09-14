@@ -37,6 +37,9 @@ func RunTaskFile(task *parser.TaskFile) {
 	scripts.SetDebug(debug)
 	scripts.SetDryRun(dryRun)
 
+	os.RemoveAll("tmp")
+	os.Mkdir("tmp", 0755)
+
 	fmt.Printf("Running task %s @ %s\n", task.GetMetadata("name"), time.Now().String())
 
 	// If no devices were given, print err and exit
