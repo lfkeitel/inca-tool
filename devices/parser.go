@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -55,7 +56,7 @@ func parse(reader io.Reader, filename string) (*DeviceList, error) {
 		lineNum++
 
 		// Check for blank lines or comments
-		if len(line) < 1 || line[0] == '#' {
+		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
 
@@ -149,7 +150,7 @@ func resolveIncludes(r io.Reader, filename string) (*bytes.Buffer, error) {
 		line := scanner.Bytes()
 		linenum++
 
-		if len(line) == 0 {
+		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
 
@@ -159,13 +160,32 @@ func resolveIncludes(r io.Reader, filename string) (*bytes.Buffer, error) {
 			continue
 		}
 
+		if len(line) == 1 {
+			return nil, fmt.Errorf("Error on line %d in file %s, no path given for include", linenum, filename)
+		}
+
+		if line[1] == '!' {
+			if len(line) == 2 {
+				return nil, fmt.Errorf("Error on line %d in file %s, no path given for script include", linenum, filename)
+			}
+
+			incFilename, _ := filepath.Abs(string(line[2:]))
+			output, err := getScriptOutput(incFilename)
+			if err != nil {
+				return nil, err
+			}
+			buf.Write(output)
+			buf.WriteString("\n")
+			continue
+		}
+
 		incFilename, _ := filepath.Abs(string(line[1:]))
 		if incFilename == filename {
-			fmt.Printf("File %s included itself at line %d, skipping\n", filename, linenum)
+			return nil, fmt.Errorf("File %s included itself at line %d, skipping", filename, linenum)
 			continue
 		}
 		if _, err := os.Stat(incFilename); os.IsNotExist(err) {
-			return nil, fmt.Errorf("Inventory file does not exist: %s\n", incFilename)
+			return nil, fmt.Errorf("Include file does not exist: %s", incFilename)
 		}
 
 		file, err := os.Open(incFilename)
@@ -182,4 +202,17 @@ func resolveIncludes(r io.Reader, filename string) (*bytes.Buffer, error) {
 		buf.WriteString("\n")
 	}
 	return buf, nil
+}
+
+func getScriptOutput(script string) ([]byte, error) {
+	cmd := exec.Command(script)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return stderr.Bytes(), err
+	}
+	return stdout.Bytes(), nil
 }
