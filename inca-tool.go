@@ -62,12 +62,12 @@ func main() {
 				fmt.Println(err.Error())
 				continue
 			}
+			// Inventory from -i flag, overrides task file
+			if inventoryFile != "" {
+				task.Inventory = inventoryFile
+			}
 			if task.Inventory == "" {
-				if inventoryFile != "" {
-					task.Inventory = inventoryFile
-				} else {
-					task.Inventory = "devices.conf"
-				}
+				task.Inventory = "devices.conf"
 			}
 			taskmanager.RunTaskFile(task)
 		}
