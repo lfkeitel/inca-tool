@@ -283,10 +283,6 @@ func (p *Parser) finishUp() error {
 		p.task.Concurrent = 300
 	}
 
-	if p.task.Inventory == "" {
-		p.task.Inventory = "devices.conf"
-	}
-
 	if _, ok := p.task.Commands["main"]; !ok {
 		return errors.New("No main command block declared")
 	}

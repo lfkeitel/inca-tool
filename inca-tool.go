@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/lfkeitel/inca-tool/devices"
+	"github.com/lfkeitel/inca-tool/parser"
 	"github.com/lfkeitel/inca-tool/taskmanager"
 )
 
@@ -16,19 +17,20 @@ const (
 )
 
 var (
-	dryRun  bool // flag
-	verbose bool // flag
-	debug   bool // flag
+	dryRun        bool   // flag
+	verbose       bool   // flag
+	debug         bool   // flag
+	inventoryFile string // flag
 )
 
 func init() {
 	flag.BoolVar(&dryRun, "r", false, "Do everything up to but not including, actually running the script. Also lists affected devices")
 	flag.BoolVar(&verbose, "v", false, "Enable verbose output")
 	flag.BoolVar(&debug, "d", false, "Enable debug mode")
+	flag.StringVar(&inventoryFile, "i", "hosts", "Inventory file")
 }
 
 func main() {
-	printHeader()
 	start := time.Now()
 	flag.Parse()
 
@@ -54,7 +56,20 @@ func main() {
 	command := cliArgs[0]
 	if command == "run" && cliArgsc >= 2 { // Run a task file
 		for _, file := range cliArgs[1:] {
-			taskmanager.RunTaskFile(file)
+			// Parse the task file
+			task, err := parser.ParseFile(file)
+			if err != nil {
+				fmt.Println(err.Error())
+				continue
+			}
+			if task.Inventory == "" {
+				if inventoryFile != "" {
+					task.Inventory = inventoryFile
+				} else {
+					task.Inventory = "devices.conf"
+				}
+			}
+			taskmanager.RunTaskFile(task)
 		}
 	} else if command == "test" && cliArgsc >= 2 { // Test a task file for errors
 		for _, file := range cliArgs[1:] {

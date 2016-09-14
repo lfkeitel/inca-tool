@@ -103,7 +103,7 @@ func runTask(hosts *devices.DeviceList, task *parser.TaskFile, baseScript string
 		// Get variables
 		vars := getVariables(host, task)
 		if verbose {
-			fmt.Printf("Configuring host %s (%s)\n", host.Name, vars["address"])
+			fmt.Printf("Configuring host %s (%s)\n", host.Name, vars["hostname"])
 		}
 
 		// Generate a host specific script file

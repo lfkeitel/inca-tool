@@ -3,6 +3,7 @@ package taskmanager
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/lfkeitel/inca-tool/devices"
 	"github.com/lfkeitel/inca-tool/parser"
@@ -30,26 +31,13 @@ func SetDebug(setting bool) {
 	debug = setting
 }
 
-func RunTaskFile(taskfile string) {
+func RunTaskFile(task *parser.TaskFile) {
 	// Set scripts package settings
 	scripts.SetVerbose(verbose)
 	scripts.SetDebug(debug)
 	scripts.SetDryRun(dryRun)
 
-	// Parse the task file
-	task, err := parser.ParseFile(taskfile)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	// Print some task information
-	fmt.Printf("Task Information:\n")
-	fmt.Printf("  Name: %s\n", task.GetMetadata("name"))
-	fmt.Printf("  Description: %s\n", task.GetMetadata("description"))
-	fmt.Printf("  Author: %s\n", task.GetMetadata("author"))
-	fmt.Printf("  Last Changed: %s\n", task.GetMetadata("date"))
-	fmt.Printf("  Version: %s\n", task.GetMetadata("version"))
+	fmt.Printf("Running task %s @ %s\n", task.GetMetadata("name"), time.Now().String())
 
 	// If no devices were given, print err and exit
 	if len(task.Devices) == 0 {
@@ -58,6 +46,9 @@ func RunTaskFile(taskfile string) {
 	}
 
 	// Load and filter devices
+	if verbose {
+		fmt.Printf("Loading inventory from %s\n", task.Inventory)
+	}
 	deviceList, err := devices.ParseFile(task.Inventory)
 	if err != nil {
 		fmt.Printf("Error loading devices: %s\n", err.Error())
