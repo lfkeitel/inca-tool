@@ -34,3 +34,7 @@ func (t *TaskFile) GetMetadata(s string) string {
 	data, _ := t.Metadata[s]
 	return data
 }
+
+func (t *TaskFile) GetAllMetadata() map[string]string {
+	return t.Metadata
+}

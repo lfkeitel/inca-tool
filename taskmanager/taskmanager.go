@@ -96,7 +96,7 @@ func RunTaskFile(task *parser.TaskFile) {
 	}
 
 	// Generate an executable script file
-	scriptFilename, err := scripts.GenerateBaseScriptFile(templateFile, text)
+	scriptFilename, err := scripts.GenerateBaseScriptFile(templateFile, text, task.GetAllMetadata())
 	if err != nil {
 		fmt.Printf("Error generating script: %s\n", err.Error())
 		return

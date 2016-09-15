@@ -75,7 +75,7 @@ func ProcessScriptCommand(cmd string, task *parser.TaskFile, devices *devices.De
 }
 
 // GenerateBaseScriptFile generates a script based on the template and data given. It returns the path to the script
-func GenerateBaseScriptFile(template string, data string) (string, error) {
+func GenerateBaseScriptFile(template string, data string, taskVars map[string]string) (string, error) {
 	// Generate the base script filename
 	tmpFilename := "tmp/builtBaseScript-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	// Copy the template to the base file
@@ -84,8 +84,11 @@ func GenerateBaseScriptFile(template string, data string) (string, error) {
 		return "", err
 	}
 	// Insert the main section
-	vars := map[string]string{"main": data}
-	if err := insertVariables(tmpFilename, vars); err != nil {
+	if err := insertVariables(tmpFilename, map[string]string{"main": data}); err != nil {
+		return "", err
+	}
+	// Process custom variable data
+	if err := insertVariables(tmpFilename, taskVars); err != nil {
 		return "", err
 	}
 	// Return the filename for the base script
@@ -101,7 +104,7 @@ func runTask(hosts *devices.DeviceList, task *parser.TaskFile, baseScript string
 	// For every host
 	for _, host := range hosts.Devices {
 		// Get variables
-		vars := getVariables(host, task)
+		vars := getHostVariables(host)
 		if verbose {
 			fmt.Printf("Configuring host %s (%s)\n", host.Name, vars["hostname"])
 		}
