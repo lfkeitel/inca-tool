@@ -38,3 +38,9 @@ func (t *TaskFile) GetMetadata(s string) string {
 func (t *TaskFile) GetAllMetadata() map[string]string {
 	return t.Metadata
 }
+
+func (t *TaskFile) SetUserData(k, v string) {
+	// User data is prefixed with an underscore internally
+	// to separate it from internal data
+	t.Metadata["_"+k] = v
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/lfkeitel/inca-tool/devices"
@@ -16,23 +17,50 @@ const (
 	incaVersion = "0.3.0"
 )
 
+type varSlice map[string]string
+
+func (v varSlice) String() string {
+	return ""
+}
+
+func (v varSlice) Set(value string) error {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+
+	vars := strings.Split(value, ";")
+	for _, val := range vars {
+		sVar := strings.Split(val, ":")
+		if len(sVar) != 2 {
+			return fmt.Errorf("No value given for %s", val)
+		}
+		v[strings.TrimSpace(sVar[0])] = strings.TrimSpace(sVar[1])
+	}
+	return nil
+}
+
 var (
-	dryRun        bool   // flag
-	verbose       bool   // flag
-	debug         bool   // flag
-	inventoryFile string // flag
+	dryRun        bool     // flag
+	verbose       bool     // flag
+	debug         bool     // flag
+	inventoryFile string   // flag
+	cliVars       varSlice // flag
 )
 
 func init() {
+	cliVars = (varSlice)(make(map[string]string))
 	flag.BoolVar(&dryRun, "r", false, "Do everything up to but not including, actually running the script. Also lists affected devices")
 	flag.BoolVar(&verbose, "v", false, "Enable verbose output")
 	flag.BoolVar(&debug, "d", false, "Enable debug mode")
 	flag.StringVar(&inventoryFile, "i", "hosts", "Inventory file")
+	flag.Var(cliVars, "var", "Extra variables")
 }
 
 func main() {
 	start := time.Now()
 	flag.Parse()
+
+	fmt.Printf("%#v\n", cliVars)
 
 	// Set taskmanager package settings
 	taskmanager.SetVerbose(verbose)
@@ -68,6 +96,10 @@ func main() {
 			}
 			if task.Inventory == "" {
 				task.Inventory = "devices.conf"
+			}
+			// Set variables given in the command line into the task
+			for k, v := range cliVars {
+				task.SetUserData(k, v)
 			}
 			taskmanager.RunTaskFile(task)
 		}

@@ -91,6 +91,14 @@ func GenerateBaseScriptFile(template string, data string, taskVars map[string]st
 	if err := insertVariables(tmpFilename, taskVars); err != nil {
 		return "", err
 	}
+
+	if debug && verbose {
+		fmt.Println("Base Variables:")
+		for i, v := range taskVars {
+			fmt.Printf("  %s: %s\n", i, v)
+		}
+	}
+
 	// Return the filename for the base script
 	return tmpFilename, nil
 }
