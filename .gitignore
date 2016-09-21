@@ -2,3 +2,4 @@ it
 tmp/
 tasks/
 private/
+docs/_build/
