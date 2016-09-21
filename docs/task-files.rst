@@ -43,6 +43,14 @@ And extended list is a simple list but can take a main value as well as key valu
 
 Although it may seem strange at first, this is can be very powerful for creating complex task files.
 
+User Defined Variables
+~~~~~~~~~~~~~~~~~~~~~~
+Custom variables can be declared in a task file and then used with commands. This can be very helpful to avoid duplicate data and can provide a clean, easy way to update data later on. The format is simply a modified key value pair::
+
+    $key: value
+
+To use the value in a command block, simply use the syntax ``{{key}}``. Note, there's no dollar sign ($) when using the key, only when setting.
+
 Task File Structure
 -------------------
 A task file is made up of several parts. Settings are optional unless marked otherwise.

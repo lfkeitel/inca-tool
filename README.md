@@ -22,7 +22,7 @@ Commands:
 
 ##Where's the documentation?
 
-[Documentation is in the docs directory](docs).
+Documentation is available on [Read the Docs](http://inca-tool.readthedocs.io/en/latest/).
 
 ##What is Inca Tool?
 
