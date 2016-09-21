@@ -1,62 +1,3 @@
-##Task files
-
-Inca Tool uses task files to manage jobs. Task files are simple text files that specify the settings and commands for a job.
-
-```
-# Metadata - Doesn't really matter, for information purposes
-name: Cisco logging
-description: Add logging to 10.254.68.230
-author: Lee Keitel
-date: 10/27/2015
-version: 1.0.0
-
-# How many devices to run at the same time, Defaults to 300
-concurrent: 5
-
-# script template to use, Defaults to expect, Values can be "expect", "bash"
-template: expect
-
-# device list file, defaults to "devices.conf", recommended to use the -i flag instead
-inventory: devices.conf
-
-# unique part of prompt to wait for when using Expect
-prompt: #
-
-# list of groups or individual devices this task applies to
-# devices are defined in the device list file
-devices:
-    group1
-    device2
-
-# List of commands to execute - special commands are prefixed with _
-# Comments in command blocks must have no indention or they will be parsed
-# as their own command line
-# The line is structured as "commands: [name] [key=value]"
-commands: main type=raw
-    set hostname AwesomeDevice1
-```
-
-###Command Block Settings
-
-- type
-    - Default: expect
-    - Values: expect, raw
-    - Determines any extra processing needed for the block. Expect will surround the commands with the necessary items to work with Expect such as encapsulation in a send command and issuing an expect command.
-
-###Special Commands
-
-- `_c foobar` - Inline a command block named foobar
-- `_s foobar.baz -- arg1; arg2` - Immediately execute the script named foobar.baz. This stops command processing and uses the script file for the job. The script will be executed with the provided arguments arg1, arg2, etc. Arguments are separated by a semicolon
-- `_b foo` - Inline a builtin command block. Inca Tool has a few builtin command blocks for common functions on Juniper and Cisco devices. See below.
-
-###Builtin Command Blocks
-
-- `juniper-configure` - Enter Juniper's configure mode.
-- `juniper-exit-nocommit` - Exits from the Juniper configure mode and if requested will exit without commiting changes. This can be useful to get information from the switch and ensuring no actual configuration change takes place.
-- `juniper-commit-rollback-failed` - Attempt to commit changes on a Juniper device and rollback if commit fails. The script as a whole will fail for that device and an error will be show to the console.
-- `cisco-enable-mode` - Enter Cisco's Enable exec mode.
-- `cisco-end-wrmem` - Exit a Cisco's configure terminal mode and save the running configuration.
-
 ##Inventory File
 
 The inventory file is the list of all devices that a task file could possibly run against. They are separated into groups which can then be specified in a task file to run against. An inventory file can be set in the task file itself, or on the command line using the `-i` flag. Using the cli flag is recommended.
@@ -116,7 +57,7 @@ Building1_2
 Inventories can be separated into multiple files and then brought together at run time. There two ways to do this. The first is by including each file individually. The second is to use the output of an executable file and add it to the inventory. Both methods simply replace the include line in the parent file with the text from the included file itself or from the standard output of the executable. The purpose of includes is to provide a way to separate the different parts of a network/system and break them into manageable chunks.
 
 
-### Example using normal file includes
+###Example using normal file includes
 
 Example root inventory file:
 ```
@@ -158,7 +99,7 @@ db1.example.com
 db2.example.com
 ```
 
-### Example using script include
+###Example using script include
 
 Say we have a directory that contains ".conf" files containing our inventory. We can create a script that will dynamically concatenate the files together. This way we don't need to specify each file by hand.
 
