@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lfkeitel/inca-tool/src/devices"
-	"github.com/lfkeitel/inca-tool/src/parser"
-	"github.com/lfkeitel/inca-tool/src/taskmanager"
+	"github.com/lfkeitel/inca-tool/src/device"
+	"github.com/lfkeitel/inca-tool/src/manager"
+	parser "github.com/lfkeitel/inca-tool/src/task"
 )
 
 const (
@@ -60,10 +60,10 @@ func main() {
 	start := time.Now()
 	flag.Parse()
 
-	// Set taskmanager package settings
-	taskmanager.SetVerbose(verbose)
-	taskmanager.SetDebug(debug)
-	taskmanager.SetDryRun(dryRun)
+	// Set manager package settings
+	manager.SetVerbose(verbose)
+	manager.SetDebug(debug)
+	manager.SetDryRun(dryRun)
 
 	cliArgs := flag.Args()
 	cliArgsc := len(cliArgs)
@@ -81,29 +81,10 @@ func main() {
 
 	command := cliArgs[0]
 	if command == "run" && cliArgsc >= 2 { // Run a task file
-		for _, file := range cliArgs[1:] {
-			// Parse the task file
-			task, err := parser.ParseFile(file)
-			if err != nil {
-				fmt.Println(err.Error())
-				continue
-			}
-			// Inventory from -i flag, overrides task file
-			if inventoryFile != "" {
-				task.Inventory = inventoryFile
-			}
-			if task.Inventory == "" {
-				task.Inventory = "devices.conf"
-			}
-			// Set variables given in the command line into the task
-			for k, v := range cliVars {
-				task.SetUserData(k, v)
-			}
-			taskmanager.RunTaskFile(task)
-		}
+		runCmd(cliArgs[1:])
 	} else if command == "test" && cliArgsc >= 2 { // Test a task file for errors
 		for _, file := range cliArgs[1:] {
-			taskmanager.ValidateTaskFile(file)
+			manager.ValidateTaskFile(file)
 		}
 	} else if command == "version" { // Show version info
 		os.Exit(0)
@@ -111,20 +92,7 @@ func main() {
 		printUsage()
 		os.Exit(0)
 	} else if command == "dev" && cliArgsc == 2 { // Dev stuff
-		d, err := devices.ParseFile(cliArgs[1])
-		if err != nil {
-			fmt.Println(err.Error())
-		} else {
-			for _, group := range d.Groups {
-				fmt.Printf("Group: %s\n", group.Name)
-				fmt.Printf("Group Settings: %#v\n", group.GetSettings())
-				for _, dev := range group.Devices {
-					fmt.Printf("   DeviceName: %s\n", dev.Name)
-					fmt.Printf("   Device Settings: %#v\n", dev.GetSettings())
-				}
-				fmt.Println("")
-			}
-		}
+		devCmd(cliArgs[1])
 		os.Exit(0)
 	} else {
 		printUsage()
@@ -168,4 +136,47 @@ func checkDependencies() error {
 		return fmt.Errorf("Expect doesn't appear to be installed.\n")
 	}
 	return nil
+}
+
+func runCmd(filepaths []string) {
+	for _, file := range filepaths {
+		// Parse the task file
+		task, err := parser.ParseFile(file)
+		if err != nil {
+			fmt.Println(err.Error())
+			continue
+		}
+
+		// Inventory from -i flag, overrides task file
+		if inventoryFile != "" {
+			task.Inventory = inventoryFile
+		}
+		// Set default if empty
+		if task.Inventory == "" {
+			task.Inventory = "inventory"
+		}
+
+		// Set variables given in the command line into the task
+		for k, v := range cliVars {
+			task.SetUserData(k, v)
+		}
+		manager.RunTask(task)
+	}
+}
+
+func devCmd(filepath string) {
+	d, err := device.ParseFile(filepath)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		for _, group := range d.Groups {
+			fmt.Printf("Group: %s\n", group.Name)
+			fmt.Printf("Group Settings: %#v\n", group.GetSettings())
+			for _, dev := range group.Devices {
+				fmt.Printf("   DeviceName: %s\n", dev.Name)
+				fmt.Printf("   Device Settings: %#v\n", dev.GetSettings())
+			}
+			fmt.Println("")
+		}
+	}
 }

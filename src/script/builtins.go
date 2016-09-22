@@ -1,4 +1,4 @@
-package parser
+package script
 
 var builtinBlocks = map[string]string{
 	// Special builtin that basically stops compiling, used for testing

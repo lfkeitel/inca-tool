@@ -1,4 +1,4 @@
-package parser
+package task
 
 import (
 	"fmt"
@@ -67,8 +67,8 @@ var testFileParsesShouldParse = []bool{
 }
 
 // Comparision of passing tests
-var testCasesStructs = []*TaskFile{
-	&TaskFile{
+var testCasesStructs = []*Task{
+	&Task{
 		Metadata: map[string]string{
 			"name":        "Testing",
 			"description": "Test Description",
@@ -99,7 +99,7 @@ var testCasesStructs = []*TaskFile{
 			},
 		},
 	},
-	&TaskFile{
+	&Task{
 		Metadata: map[string]string{
 			"name":        "Testing",
 			"description": "Test Description",
@@ -156,7 +156,7 @@ func TestGeneralParse(t *testing.T) {
 	}
 }
 
-func compareTasks(t *TaskFile, i int) error {
+func compareTasks(t *Task, i int) error {
 	base := testCasesStructs[i]
 	if !reflect.DeepEqual(base, t) {
 		if !reflect.DeepEqual(base.Commands["main"], t.Commands["main"]) {

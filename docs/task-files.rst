@@ -116,7 +116,7 @@ For a task to run, Inca Tool needs to know which devices should be configured. T
     - Default: devices.conf
     - Valid values: File system path
     - Description:
-        - The path to the inventory file. It may be absolute or relative. The path will be relative to the current working directory. NOTE: It is recommended to provide the inventory file via the -i cli flag. If this setting is used in a task file, it will override the file given on the command line.
+        - The path to the inventory file. It may be absolute or relative. The path will be relative to the current working directory. NOTE: It is recommended to provide the inventory file via the -i cli flag. The -i flag will override any inventory file set in the Task.
 - devices
     - Required
     - Type: simple list
@@ -154,7 +154,7 @@ Special Command Syntax
 There are a few special command prefixes that change how the command block is parsed and even how the job is ran.
 
 - ``_c foobar`` - Inline a command block named foobar
-- ``_s foobar.sh -a arg1 arg2`` - Immediately execute the file named foobar.sh. This stops all parsing and immediately executes the file. When the file is done executing, the job is complete. All other command lines are ignored.
+- ``_s foobar.sh -a arg1 arg2`` - Immediately execute the file named foobar.sh. This stops all parsing and immediately executes the file. When the file is done executing, the job is complete. All other command lines are ignored. The file is executed once, not per device.
 - ``_b foo`` - This functions the same as ``_c`` but can only be used with builtin command block. Inca Tool has a few builtin command blocks for common functions on Juniper and Cisco devices. A list of block names can be found below.
 
 Builtin Command Blocks

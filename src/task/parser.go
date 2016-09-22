@@ -1,4 +1,4 @@
-package parser
+package task
 
 import (
 	"bufio"
@@ -29,7 +29,7 @@ type Parser struct {
 	currentSigWs string
 	mainReflect  reflect.Value
 	reflected    bool
-	task         *TaskFile
+	task         *Task
 	currentLine  int
 	currentFile  string
 }
@@ -44,13 +44,13 @@ func (p *Parser) Clean() {
 	p.runningMode = modeRoot
 	p.currentSigWs = ""
 	p.reflected = false
-	p.task = &TaskFile{}
+	p.task = &Task{}
 	p.task.Metadata = make(map[string]string)
 	p.currentLine = 0
 }
 
-// ParseFile will load the file filename and put it into a TaskFile struct or return an error if something goes wrong
-func ParseFile(filename string) (*TaskFile, error) {
+// ParseFile will load the file filename and put it into a Task struct or return an error if something goes wrong
+func ParseFile(filename string) (*Task, error) {
 	filename, _ = filepath.Abs(filename)
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return nil, fmt.Errorf("Task file does not exist: %s\n", filename)
@@ -68,7 +68,7 @@ func ParseFile(filename string) (*TaskFile, error) {
 	return p.task, nil
 }
 
-func ParseString(data string) (*TaskFile, error) {
+func ParseString(data string) (*Task, error) {
 	p := NewParser()
 	if err := p.parse(strings.NewReader(data), ""); err != nil {
 		return nil, err

@@ -1,4 +1,4 @@
-package parser
+package task
 
 var standardMetadata = []string{
 	"name",
@@ -8,8 +8,8 @@ var standardMetadata = []string{
 	"version",
 }
 
-// TaskFile represents a parsed task file
-type TaskFile struct {
+// Task represents a parsed task file
+type Task struct {
 	Metadata map[string]string
 
 	Concurrent int32
@@ -31,16 +31,16 @@ type CommandBlock struct {
 	Commands []string
 }
 
-func (t *TaskFile) GetMetadata(s string) string {
+func (t *Task) GetMetadata(s string) string {
 	data, _ := t.Metadata[s]
 	return data
 }
 
-func (t *TaskFile) GetAllMetadata() map[string]string {
+func (t *Task) GetAllMetadata() map[string]string {
 	return t.Metadata
 }
 
-func (t *TaskFile) SetUserData(k, v string) {
+func (t *Task) SetUserData(k, v string) {
 	// User data is prefixed with an underscore internally
 	// to separate it from internal data
 	t.Metadata["_"+k] = v

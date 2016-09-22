@@ -1,32 +1,37 @@
-package scripts
+package script
 
 import (
-	"bytes"
-	"io/ioutil"
+	"io"
+	"os"
 
-	"github.com/lfkeitel/inca-tool/src/devices"
+	"github.com/lfkeitel/inca-tool/src/device"
 )
 
-func insertVariables(filename string, vars map[string]string) error {
-	file, err := ioutil.ReadFile(filename)
+func copyFileContents(src, dst string) error {
+	var err error
+
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
 	if err != nil {
 		return err
 	}
 
-	for n, v := range vars {
-		if n[0] == '_' {
-			n = n[1:]
-		}
-		file = bytes.Replace(file, []byte("{{"+n+"}}"), []byte(v), -1)
-	}
+	defer func() {
+		err = out.Close()
+	}()
 
-	if err := ioutil.WriteFile(filename, file, 0744); err != nil {
+	if _, err = io.Copy(out, in); err != nil {
 		return err
 	}
-	return nil
+	return out.Sync()
 }
 
-func getHostVariables(host *devices.Device) map[string]string {
+func getHostVariables(host *device.Device) map[string]string {
 	argList := make(map[string]string)
 	argList["protocol"] = host.GetSetting("protocol")
 	if argList["protocol"] == "" {
