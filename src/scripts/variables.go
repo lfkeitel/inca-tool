@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 
-	"github.com/lfkeitel/inca-tool/devices"
+	"github.com/lfkeitel/inca-tool/src/devices"
 )
 
 func insertVariables(filename string, vars map[string]string) error {

@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lfkeitel/inca-tool/devices"
-	"github.com/lfkeitel/inca-tool/parser"
+	"github.com/lfkeitel/inca-tool/src/devices"
+	"github.com/lfkeitel/inca-tool/src/parser"
 
 	us "github.com/lfkeitel/utils/sync"
 )

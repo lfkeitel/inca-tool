@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lfkeitel/inca-tool/devices"
-	"github.com/lfkeitel/inca-tool/parser"
-	"github.com/lfkeitel/inca-tool/taskmanager"
+	"github.com/lfkeitel/inca-tool/src/devices"
+	"github.com/lfkeitel/inca-tool/src/parser"
+	"github.com/lfkeitel/inca-tool/src/taskmanager"
 )
 
 const (
