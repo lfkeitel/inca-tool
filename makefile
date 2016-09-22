@@ -1,4 +1,4 @@
-all:
+all: test
 	go build -o build/it cmd/it/inca-tool.go
 
 clean:

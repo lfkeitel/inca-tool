@@ -18,6 +18,20 @@ send "configure\n"
 expect "#"
 `,
 
+	// Reset a Juniper password
+	"juniper-password-reset": `
+send "set system root-authentication plain-text-password\n";
+expect {
+	"New password" { send "{{juniper_password}}\n"; }
+	"error" { send_error "Juniper password error\n"; exit 1	}
+}
+expect {
+	"Retype new password" { send "{{juniper_password}}\n"; }
+	"error" { send_error "Juniper password error\n"; exit 1	}
+}
+expect "#";
+`,
+
 	// Exit Juniper without commiting changes
 	"juniper-exit-nocommit": `
 send "exit\n"
@@ -85,7 +99,7 @@ expect {
 		send_error "$hostname failed to save configuration"
 		exit 1
 	}
-	"[OK]"
+	"\[OK\]"
 }
 set timeout $oldTimeout
 `,

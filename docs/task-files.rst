@@ -161,6 +161,7 @@ Builtin Command Blocks
 ++++++++++++++++++++++
 
 - ``juniper-configure`` - Enter Juniper's configure mode.
+- ``juniper-password-reset`` - Changes the root password on a Juniper. Requires a ``juniper_password`` task variable.
 - ``juniper-exit-nocommit`` - Exits from the Juniper configure mode and if requested will exit without committing changes.
 - ``juniper-commit-rollback-failed`` - Attempt to commit changes on a Juniper device and rollback if the commit fails. The script as a whole will fail for that device and an error will be show to the console.
 - ``cisco-enable-mode`` - Enter Cisco's Enable exec mode.
