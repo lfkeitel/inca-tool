@@ -34,8 +34,11 @@ func SetDebug(setting bool) {
 }
 
 func Execute(s *Script, hosts *device.DeviceList) error {
+	fmt.Println("---------------------------------")
+
 	if s.dontProcess {
 		splitCmd := strings.SplitN(s.script, " ", 2)
+		fmt.Printf("Running script %s\n", splitCmd[0])
 		if len(splitCmd) == 1 {
 			return executeFile(splitCmd[0], "")
 		}
@@ -49,9 +52,7 @@ func Execute(s *Script, hosts *device.DeviceList) error {
 	for _, host := range hosts.Devices {
 		// Get variables
 		vars := getHostVariables(host)
-		if verbose {
-			fmt.Printf("Configuring host %s (%s)\n", host.Name, vars["hostname"])
-		}
+		fmt.Printf("Configuring host %s (%s)\n", host.Name, vars["hostname"])
 
 		// Generate a host specific script file
 		hostScript := fmt.Sprintf("%s-%s.sh", s.script, host.Name)
@@ -78,9 +79,7 @@ func Execute(s *Script, hosts *device.DeviceList) error {
 				lg.Done()
 			}()
 			executeFile(script, "")
-			if verbose {
-				fmt.Printf("Finished configuring host %s (%s)\n", name, address)
-			}
+			fmt.Printf("Finished configuring host %s (%s)\n", name, address)
 			if !debug {
 				// Remove host specific script file
 				os.Remove(script)

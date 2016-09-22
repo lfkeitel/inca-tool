@@ -63,7 +63,7 @@ var testFileParses = [][]int{
 var testFileParsesShouldParse = []bool{
 	true,
 	true,
-	false,
+	true,
 }
 
 // Comparision of passing tests
@@ -107,7 +107,7 @@ var testCasesStructs = []*Task{
 			"date":        "10/27/2015",
 			"version":     "1.0.0",
 		},
-		Concurrent: 300,
+		Concurrent: 0,
 		Template:   "bash",
 		Prompt:     "$",
 
@@ -127,6 +127,37 @@ var testCasesStructs = []*Task{
 					"_b juniper-configure",
 					"set system hostname Keitel1",
 					"_b juniper-commit-rollback-failed",
+				},
+			},
+		},
+	},
+	&Task{
+		Metadata: map[string]string{
+			"name":        "Testing",
+			"description": "Test Description",
+			"author":      "Lee Keitel",
+			"date":        "10/27/2015",
+			"version":     "1.0.0",
+		},
+		Concurrent: 0,
+		Template:   "bash",
+		Prompt:     "$",
+
+		Inventory: "",
+		Devices: []string{
+			"local",
+			"juniper",
+		},
+
+		currentBlock:        "main",
+		DefaultCommandBlock: "",
+		Commands: map[string]*CommandBlock{
+			"main": &CommandBlock{
+				Name: "main",
+				Type: "",
+				Commands: []string{
+					"set thing",
+					"this should pass now",
 				},
 			},
 		},
@@ -159,8 +190,12 @@ func TestGeneralParse(t *testing.T) {
 func compareTasks(t *Task, i int) error {
 	base := testCasesStructs[i]
 	if !reflect.DeepEqual(base, t) {
-		if !reflect.DeepEqual(base.Commands["main"], t.Commands["main"]) {
-			return fmt.Errorf("Commands not equal:\n%#v\n\n%#v\n\n", base.Commands["main"], t.Commands["main"])
+		if !reflect.DeepEqual(base.Commands[base.currentBlock], t.Commands[base.currentBlock]) {
+			return fmt.Errorf(
+				"Commands not equal:\n%#v\n\n%#v\n\n",
+				base.Commands[base.currentBlock],
+				t.Commands[base.currentBlock],
+			)
 		}
 		return fmt.Errorf("Structs not equal:\n%#v\n\n%#v\n\n", base, t)
 	}

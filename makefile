@@ -7,4 +7,7 @@ clean:
 clean-debug: clean
 	rm -f tmp/built*
 
-.PHONY: clean clean-debug
+test:
+	go test ./...
+
+.PHONY: clean clean-debug test

@@ -3,7 +3,6 @@ package task
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -114,10 +113,6 @@ func (p *Parser) parse(reader io.Reader, filename string) error {
 	p.currentFile = filename
 
 	if err := p.scan(scanner); err != nil {
-		return err
-	}
-
-	if err := p.finishUp(); err != nil {
 		return err
 	}
 
@@ -331,17 +326,6 @@ func (p *Parser) parseDeviceLine(line []byte) error {
 
 	line = bytes.TrimSpace(line)
 	p.task.Devices = append(p.task.Devices, string(line))
-	return nil
-}
-
-func (p *Parser) finishUp() error {
-	if p.task.Concurrent <= 0 {
-		p.task.Concurrent = 300
-	}
-
-	if _, ok := p.task.Commands[p.task.DefaultCommandBlock]; !ok {
-		return errors.New("Default command block not declared")
-	}
 	return nil
 }
 

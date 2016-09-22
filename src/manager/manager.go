@@ -104,10 +104,11 @@ func RunTask(task *parser.Task) {
 				fmt.Printf("Protocol: %s\n", proto)
 				fmt.Println("---------")
 			}
+			fmt.Print("\n")
 		}
 	}
 
-	fmt.Printf("\nHosts touched: %d\n", len(deviceList.Devices))
+	fmt.Printf("Hosts touched: %d\n", len(deviceList.Devices))
 }
 
 func ValidateTaskFile(filename string) {
