@@ -77,6 +77,11 @@ func ParseString(data string) (*TaskFile, error) {
 }
 
 func (p *Parser) parseIncludeFile(filename string) error {
+	// Build file path relative to parent
+	if !filepath.IsAbs(filename) {
+		filename = filepath.Join(filepath.Dir(p.currentFile), filename)
+	}
+
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return fmt.Errorf("Task file does not exist: %s\n", filename)
 	}
@@ -86,6 +91,9 @@ func (p *Parser) parseIncludeFile(filename string) error {
 		return err
 	}
 	defer file.Close()
+
+	p.currentLine = 0
+	p.currentFile = filename
 
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
@@ -129,15 +137,10 @@ func (p *Parser) scan(scanner *bufio.Scanner) error {
 		}
 
 		if lineTrimmed[0] == '@' {
-			incFilename, _ := filepath.Abs(string(lineTrimmed[1:]))
-			if incFilename == p.currentFile {
-				return fmt.Errorf("Task file %s included itself on line %d", p.currentFile, p.currentLine)
-			}
+			incFilename := string(lineTrimmed[1:])
 			// Save current state
 			curLine := p.currentLine
 			curFile := p.currentFile
-			p.currentLine = 0
-			p.currentFile = incFilename
 			if err := p.parseIncludeFile(incFilename); err != nil {
 				return err
 			}
@@ -257,7 +260,7 @@ func (p *Parser) parseCommandBlockStart(cmd, opts []byte) error {
 
 	if len(pieces) > 0 {
 		for _, setting := range pieces[settingsStartIndex:] {
-			parts := bytes.Split(setting, []byte("="))
+			parts := bytes.SplitN(setting, []byte("="), 2)
 			if len(parts) < 2 {
 				continue
 			}
