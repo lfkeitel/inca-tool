@@ -7,7 +7,7 @@ import (
 
 	"github.com/lfkeitel/inca-tool/src/device"
 	"github.com/lfkeitel/inca-tool/src/script"
-	parser "github.com/lfkeitel/inca-tool/src/task"
+	"github.com/lfkeitel/inca-tool/src/task"
 )
 
 var (
@@ -31,7 +31,7 @@ func SetDebug(setting bool) {
 	debug = setting
 }
 
-func RunTask(task *parser.Task) {
+func RunTask(t *task.Task) {
 	// Set scripts package settings
 	script.SetVerbose(verbose)
 	script.SetDebug(debug)
@@ -42,25 +42,25 @@ func RunTask(task *parser.Task) {
 	os.Mkdir("tmp", 0755)
 
 	// Print a header
-	fmt.Printf("Running task %s @ %s\n", task.GetMetadata("name"), time.Now().String())
+	fmt.Printf("Running task %s @ %s\n", t.GetMetadata("name"), time.Now().String())
 
 	// If no devices were given, print err and exit
-	if len(task.Devices) == 0 {
+	if len(t.Devices) == 0 {
 		fmt.Println("No devices were given in the task file. Exiting.")
 		return
 	}
 
 	// Load and filter devices
 	if verbose {
-		fmt.Printf("Loading inventory from %s\n", task.Inventory)
+		fmt.Printf("Loading inventory from %s\n", t.Inventory)
 	}
-	deviceList, err := device.ParseFile(task.Inventory)
+	deviceList, err := device.ParseFile(t.Inventory)
 	if err != nil {
 		fmt.Printf("Error loading devices: %s\n", err.Error())
 		return
 	}
 
-	deviceList, err = device.Filter(deviceList, task.Devices)
+	deviceList, err = device.Filter(deviceList, t.Devices)
 	if err != nil {
 		fmt.Printf("Error: %s\n", err.Error())
 		return
@@ -73,7 +73,7 @@ func RunTask(task *parser.Task) {
 	}
 
 	// Create a script based on the task
-	taskScript, err := script.GenerateScript(task)
+	taskScript, err := script.GenerateScript(t)
 	if err != nil {
 		fmt.Printf("Error generating script: %s\n", err.Error())
 		return
@@ -112,7 +112,7 @@ func RunTask(task *parser.Task) {
 }
 
 func ValidateTaskFile(filename string) {
-	t, err := parser.ParseFile(filename)
+	t, err := task.ParseFile(filename)
 	if err != nil {
 		fmt.Printf("\nErrors found in \"%s\"\n", filename)
 		fmt.Printf("   %s\n", err.Error())
