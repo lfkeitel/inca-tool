@@ -1,5 +1,5 @@
 all:
-	go build -o it cmd/it/inca-tool.go
+	go build -o build/it cmd/it/inca-tool.go
 
 clean:
 	rm -f it

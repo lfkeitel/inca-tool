@@ -3,3 +3,4 @@ tmp/
 tasks/
 private/
 docs/_build/
+build/
