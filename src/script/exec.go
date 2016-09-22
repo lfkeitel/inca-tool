@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 
 	"github.com/lfkeitel/inca-tool/src/device"
 
@@ -43,8 +42,6 @@ func Execute(s *Script, hosts *device.DeviceList) error {
 		return executeFile(splitCmd[0], splitCmd[1])
 	}
 
-	// Wait group for all hosts
-	var wg sync.WaitGroup
 	// Wait group to enforce maximum concurrent hosts
 	lg := us.NewLimitGroup(s.task.Concurrent)
 
@@ -75,11 +72,9 @@ func Execute(s *Script, hosts *device.DeviceList) error {
 		}
 
 		// The magic, set off a goroutine to execute the script
-		wg.Add(1)
 		lg.Add(1)
 		go func(script, name, address string) {
 			defer func() {
-				wg.Done()
 				lg.Done()
 			}()
 			executeFile(script, "")
@@ -95,7 +90,7 @@ func Execute(s *Script, hosts *device.DeviceList) error {
 		lg.Wait()
 	}
 	// Wait for everybody
-	wg.Wait()
+	lg.WaitAll()
 	return nil
 }
 
