@@ -51,7 +51,7 @@ func (p *Parser) Clean() {
 // ParseFile will load the file filename and put it into a Task struct or return an error if something goes wrong
 func ParseFile(filename string) (*Task, error) {
 	filename, _ = filepath.Abs(filename)
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
+	if stat, err := os.Stat(filename); os.IsNotExist(err) || stat.IsDir() {
 		return nil, fmt.Errorf("Task file does not exist: %s\n", filename)
 	}
 

@@ -19,7 +19,7 @@ var (
 
 func ParseFile(filename string) (*DeviceList, error) {
 	filename, _ = filepath.Abs(filename)
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
+	if stat, err := os.Stat(filename); os.IsNotExist(err) || stat.IsDir() {
 		return nil, fmt.Errorf("Inventory file does not exist: %s\n", filename)
 	}
 
