@@ -35,7 +35,7 @@ func IsScriptRun(err error) bool {
 
 func generateScriptText(block string, task *TaskFile) (string, error) {
 	main := task.Commands[block]
-	var cmdStr string
+	cmdStr := ""
 	prompt := task.Prompt
 	if prompt == "" {
 		prompt = "#"
@@ -74,7 +74,7 @@ func generateScriptText(block string, task *TaskFile) (string, error) {
 			cmdStr += text
 			break
 		default:
-			if cmd[:1] == "_" {
+			if cmd[0] == '_' {
 				return "", fmt.Errorf("Command line cannot start with \"_\": %s\n", cmd)
 			}
 			switch main.Type {

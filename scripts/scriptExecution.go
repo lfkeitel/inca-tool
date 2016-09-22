@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dragonrider23/inca-tool/devices"
-	"github.com/dragonrider23/inca-tool/parser"
+	"github.com/lfkeitel/inca-tool/devices"
+	"github.com/lfkeitel/inca-tool/parser"
 
-	us "github.com/dragonrider23/utils/sync"
+	us "github.com/lfkeitel/utils/sync"
 )
 
 var (
@@ -75,7 +75,7 @@ func ProcessScriptCommand(cmd string, task *parser.TaskFile, devices *devices.De
 }
 
 // GenerateBaseScriptFile generates a script based on the template and data given. It returns the path to the script
-func GenerateBaseScriptFile(template string, data string) (string, error) {
+func GenerateBaseScriptFile(template string, data string, taskVars map[string]string) (string, error) {
 	// Generate the base script filename
 	tmpFilename := "tmp/builtBaseScript-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	// Copy the template to the base file
@@ -84,10 +84,21 @@ func GenerateBaseScriptFile(template string, data string) (string, error) {
 		return "", err
 	}
 	// Insert the main section
-	vars := map[string]string{"main": data}
-	if err := insertVariables(tmpFilename, vars); err != nil {
+	if err := insertVariables(tmpFilename, map[string]string{"main": data}); err != nil {
 		return "", err
 	}
+	// Process custom variable data
+	if err := insertVariables(tmpFilename, taskVars); err != nil {
+		return "", err
+	}
+
+	if debug && verbose {
+		fmt.Println("Base Variables:")
+		for i, v := range taskVars {
+			fmt.Printf("  %s: %s\n", i, v)
+		}
+	}
+
 	// Return the filename for the base script
 	return tmpFilename, nil
 }
@@ -101,9 +112,9 @@ func runTask(hosts *devices.DeviceList, task *parser.TaskFile, baseScript string
 	// For every host
 	for _, host := range hosts.Devices {
 		// Get variables
-		vars := getVariables(host, task)
+		vars := getHostVariables(host)
 		if verbose {
-			fmt.Printf("Configuring host %s (%s)\n", host.Name, vars["address"])
+			fmt.Printf("Configuring host %s (%s)\n", host.Name, vars["hostname"])
 		}
 
 		// Generate a host specific script file
@@ -140,7 +151,7 @@ func runTask(hosts *devices.DeviceList, task *parser.TaskFile, baseScript string
 				// Remove host specific script file
 				os.Remove(script)
 			}
-		}(hostScript, host.Name, vars["address"])
+		}(hostScript, host.Name, vars["hostname"])
 		// Wait for the next available host execution slot
 		lg.Wait()
 	}
@@ -161,7 +172,7 @@ func runScript(sfn string, args []string) error {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
+		fmt.Printf("%s: %s\n", err, stderr.String())
 		if debug {
 			fmt.Println(out.String())
 		}

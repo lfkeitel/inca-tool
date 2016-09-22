@@ -1,11 +1,10 @@
 package scripts
 
 import (
+	"bytes"
 	"io/ioutil"
-	"strings"
 
-	"github.com/dragonrider23/inca-tool/devices"
-	"github.com/dragonrider23/inca-tool/parser"
+	"github.com/lfkeitel/inca-tool/devices"
 )
 
 func insertVariables(filename string, vars map[string]string) error {
@@ -14,18 +13,20 @@ func insertVariables(filename string, vars map[string]string) error {
 		return err
 	}
 
-	generated := string(file)
 	for n, v := range vars {
-		generated = strings.Replace(generated, "{{"+n+"}}", v, -1)
+		if n[0] == '_' {
+			n = n[1:]
+		}
+		file = bytes.Replace(file, []byte("{{"+n+"}}"), []byte(v), -1)
 	}
 
-	if err := ioutil.WriteFile(filename, []byte(generated), 0744); err != nil {
+	if err := ioutil.WriteFile(filename, file, 0744); err != nil {
 		return err
 	}
 	return nil
 }
 
-func getVariables(host *devices.Device, task *parser.TaskFile) map[string]string {
+func getHostVariables(host *devices.Device) map[string]string {
 	argList := make(map[string]string)
 	argList["protocol"] = host.GetSetting("protocol")
 	if argList["protocol"] == "" {

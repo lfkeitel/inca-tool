@@ -4,7 +4,7 @@ it: $(GO_FILES)
 	go build -o it
 
 clean:
-	rm it
+	rm -f it
 
-clean-debug:
-	rm tmp/built*
+clean-debug: clean
+	rm -f tmp/built*

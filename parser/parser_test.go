@@ -23,7 +23,7 @@ var testFileConcurrent = []string{
 
 // Device list parts
 var testFileDeviceParts = []string{
-	`device list: inventory.conf
+	`inventory: inventory.conf
 devices:
     local`,
 
@@ -34,22 +34,22 @@ devices:
 
 // Command block parts
 var testFileCommandBlocks = []string{
-	// test no settings
-	`commands: main
-    _b juniper-configure
-    set system hostname Keitel1
-    _b juniper-commit-rollback-failed`,
-
-	// Test settings
-	`commands: main type=raw
-    _b juniper-configure
-    set system hostname Keitel1
-    _b juniper-commit-rollback-failed`,
-
-	// Test no main block
+	// test no settings or name
 	`commands:
+    _b juniper-configure
+    set system hostname Keitel1
+    _b juniper-commit-rollback-failed`,
+
+	// Test settings no name
+	`commands: type=raw
+    _b juniper-configure
+    set system hostname Keitel1
+    _b juniper-commit-rollback-failed`,
+
+	// Test name no settings
+	`commands: main
     set thing
-    this should fail`,
+    this should pass now`,
 }
 
 // File parts to test as one
@@ -69,24 +69,27 @@ var testFileParsesShouldParse = []bool{
 // Comparision of passing tests
 var testCasesStructs = []*TaskFile{
 	&TaskFile{
-		Name:        "Testing",
-		Description: "Test Description",
-		Author:      "Lee Keitel",
-		Date:        "10/27/2015",
-		Version:     "1.0.0",
-		Concurrent:  10,
-		Template:    "",
-		Prompt:      "",
+		Metadata: map[string]string{
+			"name":        "Testing",
+			"description": "Test Description",
+			"author":      "Lee Keitel",
+			"date":        "10/27/2015",
+			"version":     "1.0.0",
+		},
+		Concurrent: 10,
+		Template:   "",
+		Prompt:     "",
 
-		DeviceList: "inventory.conf",
+		Inventory: "inventory.conf",
 		Devices: []string{
 			"local",
 		},
 
-		currentBlock: "main",
+		currentBlock:        "",
+		DefaultCommandBlock: "",
 		Commands: map[string]*CommandBlock{
-			"main": &CommandBlock{
-				Name: "main",
+			"": &CommandBlock{
+				Name: "",
 				Type: "",
 				Commands: []string{
 					"_b juniper-configure",
@@ -97,25 +100,28 @@ var testCasesStructs = []*TaskFile{
 		},
 	},
 	&TaskFile{
-		Name:        "Testing",
-		Description: "Test Description",
-		Author:      "Lee Keitel",
-		Date:        "10/27/2015",
-		Version:     "1.0.0",
-		Concurrent:  300,
-		Template:    "bash",
-		Prompt:      "$",
+		Metadata: map[string]string{
+			"name":        "Testing",
+			"description": "Test Description",
+			"author":      "Lee Keitel",
+			"date":        "10/27/2015",
+			"version":     "1.0.0",
+		},
+		Concurrent: 300,
+		Template:   "bash",
+		Prompt:     "$",
 
-		DeviceList: "devices.conf",
+		Inventory: "",
 		Devices: []string{
 			"local",
 			"juniper",
 		},
 
-		currentBlock: "main",
+		currentBlock:        "",
+		DefaultCommandBlock: "",
 		Commands: map[string]*CommandBlock{
-			"main": &CommandBlock{
-				Name: "main",
+			"": &CommandBlock{
+				Name: "",
 				Type: "raw",
 				Commands: []string{
 					"_b juniper-configure",
@@ -128,25 +134,23 @@ var testCasesStructs = []*TaskFile{
 }
 
 func TestGeneralParse(t *testing.T) {
-	parser := NewParser()
-
 	for i, testCase := range testFileParses {
 		file := testFileHeader + "\n" +
 			testFileConcurrent[testCase[0]] + "\n" +
 			testFileDeviceParts[testCase[1]] + "\n" +
 			testFileCommandBlocks[testCase[2]]
 
-		parsed, err := parser.ParseString(file)
+		parsed, err := ParseString(file)
 		if err == nil && !testFileParsesShouldParse[i] {
-			t.Errorf("Parse succeeded but should have failed: %s\n", file)
+			t.Errorf("Parse #%d succeeded but should have failed: %s\n", i, file)
 		}
 		if err != nil && testFileParsesShouldParse[i] {
-			t.Errorf("Parse failed but should have succeeded: %s\n", err.Error())
+			t.Errorf("Parse #%d failed but should have succeeded: %s\n", i, err.Error())
 		}
 
 		if err == nil && testFileParsesShouldParse[i] {
 			if err := compareTasks(parsed, i); err != nil {
-				t.Error(err.Error())
+				t.Errorf("Case #%d: %s", i, err.Error())
 			}
 		}
 	}

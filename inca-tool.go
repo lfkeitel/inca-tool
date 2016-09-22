@@ -5,30 +5,58 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
-	"github.com/dragonrider23/inca-tool/devices"
-	"github.com/dragonrider23/inca-tool/taskmanager"
+	"github.com/lfkeitel/inca-tool/devices"
+	"github.com/lfkeitel/inca-tool/parser"
+	"github.com/lfkeitel/inca-tool/taskmanager"
 )
 
 const (
 	incaVersion = "0.3.0"
 )
 
+type varSlice map[string]string
+
+func (v varSlice) String() string {
+	return ""
+}
+
+func (v varSlice) Set(value string) error {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+
+	vars := strings.Split(value, ";")
+	for _, val := range vars {
+		sVar := strings.Split(val, ":")
+		if len(sVar) != 2 {
+			return fmt.Errorf("No value given for %s", val)
+		}
+		v[strings.TrimSpace(sVar[0])] = strings.TrimSpace(sVar[1])
+	}
+	return nil
+}
+
 var (
-	dryRun  bool // flag
-	verbose bool // flag
-	debug   bool // flag
+	dryRun        bool     // flag
+	verbose       bool     // flag
+	debug         bool     // flag
+	inventoryFile string   // flag
+	cliVars       varSlice // flag
 )
 
 func init() {
-	flag.BoolVar(&dryRun, "dry", false, "Do everything up to but not including, actually running the script. Also lists affected devices")
+	cliVars = (varSlice)(make(map[string]string))
+	flag.BoolVar(&dryRun, "r", false, "Do everything up to but not including, actually running the script. Also lists affected devices")
 	flag.BoolVar(&verbose, "v", false, "Enable verbose output")
 	flag.BoolVar(&debug, "d", false, "Enable debug mode")
+	flag.StringVar(&inventoryFile, "i", "hosts", "Inventory file")
+	flag.Var(cliVars, "var", "Extra variables")
 }
 
 func main() {
-	printHeader()
 	start := time.Now()
 	flag.Parse()
 
@@ -54,7 +82,24 @@ func main() {
 	command := cliArgs[0]
 	if command == "run" && cliArgsc >= 2 { // Run a task file
 		for _, file := range cliArgs[1:] {
-			taskmanager.RunTaskFile(file)
+			// Parse the task file
+			task, err := parser.ParseFile(file)
+			if err != nil {
+				fmt.Println(err.Error())
+				continue
+			}
+			// Inventory from -i flag, overrides task file
+			if inventoryFile != "" {
+				task.Inventory = inventoryFile
+			}
+			if task.Inventory == "" {
+				task.Inventory = "devices.conf"
+			}
+			// Set variables given in the command line into the task
+			for k, v := range cliVars {
+				task.SetUserData(k, v)
+			}
+			taskmanager.RunTaskFile(task)
 		}
 	} else if command == "test" && cliArgsc >= 2 { // Test a task file for errors
 		for _, file := range cliArgs[1:] {
@@ -105,7 +150,7 @@ func printUsage() {
 
 Options:
 	-d Enable debug output and functions
-	-dry Perform a dry run and list the affected hosts
+	-r Perform a dry run and list the affected hosts
 	-v Enable verbose output
 
 Commands:
