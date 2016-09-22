@@ -30,7 +30,7 @@ Inca Tool is a system automation application designed to be client-less and syst
 
 ##Why another automation tool?
 
-Inca Tool was created because our environment is extremely mixed. We have multiple manufactures for network infrastructure and multiple OSes for server systems. Although tools such as Ansible can do what we need for server systems, it's very lacking in support for out network infrastructure. Ansible has recently come out with tools to configure IOS and JunOS systems, but unfortunately the modules require much newer software versions than we have in production. Although it's never good to have outdated software, those systems still need to be managed. Out of that need, Inca Tool was born.
+Inca Tool was created because our environment is extremely mixed. We have multiple manufactures for network infrastructure and multiple OSes for server systems. Although tools such as Ansible can do what we need for server systems, it's very lacking in support for our network infrastructure. Ansible has recently come out with tools to configure IOS and JunOS systems, but unfortunately the modules require much newer software versions than we have in production. Although it's never good to have outdated software, those systems still need to be managed. Out of that need, Inca Tool was born.
 
 ##Inca Tool appears to be just a script generator.
 

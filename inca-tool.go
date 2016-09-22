@@ -60,8 +60,6 @@ func main() {
 	start := time.Now()
 	flag.Parse()
 
-	fmt.Printf("%#v\n", cliVars)
-
 	// Set taskmanager package settings
 	taskmanager.SetVerbose(verbose)
 	taskmanager.SetDebug(debug)

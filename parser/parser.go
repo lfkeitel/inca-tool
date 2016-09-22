@@ -237,12 +237,14 @@ func (p *Parser) parseCommandBlockStart(cmd, opts []byte) error {
 		p.task.Commands = make(map[string]*CommandBlock)
 	}
 
-	if bytes.Equal(opts, []byte("")) {
-		return fmt.Errorf("%s blocks must have a name. Line %d", cmd, p.currentLine)
-	}
-
 	pieces := bytes.Split(opts, []byte(" "))
-	name := string(pieces[0])
+	name := ""
+	settingsStartIndex := 0
+
+	if !bytes.Contains(pieces[0], []byte("=")) {
+		name = string(pieces[0])
+		settingsStartIndex = 1
+	}
 
 	_, set := p.task.Commands[name]
 	if set {
@@ -253,8 +255,8 @@ func (p *Parser) parseCommandBlockStart(cmd, opts []byte) error {
 		Name: name,
 	}
 
-	if len(pieces) > 1 {
-		for _, setting := range pieces[1:] {
+	if len(pieces) > 0 {
+		for _, setting := range pieces[settingsStartIndex:] {
 			parts := bytes.Split(setting, []byte("="))
 			if len(parts) < 2 {
 				continue
@@ -334,8 +336,8 @@ func (p *Parser) finishUp() error {
 		p.task.Concurrent = 300
 	}
 
-	if _, ok := p.task.Commands["main"]; !ok {
-		return errors.New("No main command block declared")
+	if _, ok := p.task.Commands[p.task.DefaultCommandBlock]; !ok {
+		return errors.New("Default command block not declared")
 	}
 	return nil
 }

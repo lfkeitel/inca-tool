@@ -19,8 +19,9 @@ type TaskFile struct {
 	Inventory string
 	Devices   []string
 
-	currentBlock string
-	Commands     map[string]*CommandBlock
+	currentBlock        string
+	DefaultCommandBlock string
+	Commands            map[string]*CommandBlock
 }
 
 // CommandBlock contains all the settings for a block of commands

@@ -71,7 +71,7 @@ func RunTaskFile(task *parser.TaskFile) {
 	}
 
 	// Compile the script text
-	text, err := parser.CompileCommandText("main", task)
+	text, err := parser.CompileCommandText(task.DefaultCommandBlock, task)
 	if err != nil {
 		if parser.IsScriptRun(err) {
 			// Run straight script file if prompted
@@ -144,7 +144,7 @@ func ValidateTaskFile(filename string) {
 	}
 
 	// Compile the script text
-	_, err = parser.CompileCommandText("main", task)
+	_, err = parser.CompileCommandText(task.DefaultCommandBlock, task)
 	if err != nil {
 		if !parser.IsScriptRun(err) {
 			fmt.Printf("\nErrors found in \"%s\"\n", filename)
