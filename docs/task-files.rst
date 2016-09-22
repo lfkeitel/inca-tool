@@ -6,6 +6,11 @@ What are they?
 
 Task files are make up the core of Inca Tool. A task file is used to manage a particular job. A task file is meant to perform a single task. However, multiple tasks files may be ran at once if needed. Task files use a custom syntax that provides metadata for the task, various parameters, and the commands to execute for the task.
 
+File Extension
+--------------
+
+Although the file extension doesn't matter, it's recommended to use ``.itf`` which stands for Inca Task File.
+
 Syntax
 ------
 
@@ -41,7 +46,7 @@ And extended list is a simple list but can take a main value as well as key valu
         list value1
         list value2
 
-Although it may seem strange at first, this is can be very powerful for creating complex task files.
+Currently, setting values cannot contain a space. Although it may seem strange at first, this is can be very powerful for creating complex task files.
 
 User Defined Variables
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -50,6 +55,14 @@ Custom variables can be declared in a task file and then used with commands. Thi
     $key: value
 
 To use the value in a command block, simply use the syntax ``{{key}}``. Note, there's no dollar sign ($) when using the key, only when setting.
+
+Included Files
+~~~~~~~~~~~~~~
+Other files may be included into a task file. The included file is parsed as if it were part of the parent task file at the exact place it's included. This can be useful for creating command blocks to share amoung multiple task files. Here's the syntax::
+
+    @path/to/included/file.itf
+
+Included files are relative to their respective parent task file.
 
 Task File Structure
 -------------------
@@ -87,6 +100,12 @@ There are a couple of settings that affect how templates are generated and ran.
     - Valid values: Any string
     - Description:
         - The unique part of a prompt to wait for when using Expect.
+- default command block
+    - Type key-value string
+    - Default: Empty string
+    - Valid values: Any command block name
+    - Description:
+        - This controls which command block acts as the entry point into the task. By default a nameless block will be used. Generally this setting should be used but is made available for customization.
 
 Inventory
 ~~~~~~~~~
@@ -108,7 +127,7 @@ For a task to run, Inca Tool needs to know which devices should be configured. T
 
 Command Blocks
 ~~~~~~~~~~~~~~
-Command blocks are where the set of commands are defined that will be ran on the client device. Multiple command blocks may be created so long as they have different names. One command block must be named ``main``. This is the block that will be executed. Other blocks can be included using the ``_c`` syntax described below. If a ``main`` block doesn't exist, the task will not run and an error will be produced.
+Command blocks are where the set of commands are defined that will be ran on the client device. Multiple command blocks may be created so long as they have different names. One command block must be named whatever ``default command block`` is set to. By default this is a nameless block. Names cannot contain an equal sign or space. This is the block that will be used as the entry point into the task. Other blocks can be included using the ``_c`` syntax described below.
 
 Block Syntax::
 
@@ -118,6 +137,8 @@ Block Syntax::
         _c other-command-block
         _b builtin-command-block
         _s /path/to/script
+
+For a nameless block simply omit the name, settings can still be used as normal.
 
 Command Block Settings
 ++++++++++++++++++++++
