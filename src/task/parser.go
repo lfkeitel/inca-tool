@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -26,8 +25,6 @@ var (
 type Parser struct {
 	runningMode  int
 	currentSigWs string
-	mainReflect  reflect.Value
-	reflected    bool
 	task         *Task
 	currentLine  int
 	currentFile  string
@@ -42,7 +39,6 @@ func NewParser() *Parser {
 func (p *Parser) Clean() {
 	p.runningMode = modeRoot
 	p.currentSigWs = ""
-	p.reflected = false
 	p.task = &Task{}
 	p.task.Metadata = make(map[string]string)
 	p.currentLine = 0
@@ -109,7 +105,6 @@ func (p *Parser) parse(reader io.Reader, filename string) error {
 	// Create scanner
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
-	p.reflected = false
 	p.currentFile = filename
 
 	if err := p.scan(scanner); err != nil {
@@ -181,44 +176,9 @@ func (p *Parser) parseLine(line []byte) error {
 		return nil
 	}
 
-	if !p.reflected {
-		p.mainReflect = reflect.ValueOf(p.task)
-		p.reflected = true
-	}
-	// struct
-	s := p.mainReflect.Elem()
-	// exported field
-	f := s.FieldByName(normalizeKeyToField(setting))
-	if f.IsValid() {
-		// A Value can be changed only if it is
-		// addressable and was not obtained by
-		// the use of unexported struct fields.
-		if f.CanSet() {
-			// change value of N
-			if f.Kind() == reflect.String {
-				if f.String() != "" {
-					return fmt.Errorf("Cannot redeclare setting '%s'. Line %d", setting, p.currentLine)
-				}
-				f.SetString(string(settingVal))
-			} else if f.Kind() == reflect.Int32 {
-				if f.Int() > 0 {
-					return fmt.Errorf("Cannot redeclare setting '%s'. Line %d", setting, p.currentLine)
-				}
-
-				i, err := strconv.Atoi(string(settingVal))
-				if err != nil {
-					return fmt.Errorf("Expected integer on line %d", p.currentLine)
-				}
-				f.SetInt(int64(i))
-			}
-		}
-
-		return nil
-	}
-
 	// Custom data
 	if setting[0] == '$' {
-		p.task.Metadata["_"+string(setting[1:])] = string(settingVal)
+		p.task.SetUserData(string(setting[1:]), string(settingVal))
 		return nil
 	}
 
@@ -227,7 +187,27 @@ func (p *Parser) parseLine(line []byte) error {
 		p.task.Metadata[string(setting)] = string(settingVal)
 		return nil
 	}
-	return fmt.Errorf("Invalid setting \"%s\". Line %d", setting, p.currentLine)
+
+	key := normalizeKeyToField(setting)
+	switch key {
+	case "Concurrent":
+		i, err := strconv.Atoi(string(settingVal))
+		if err != nil {
+			return fmt.Errorf("Expected integer on line %d", p.currentLine)
+		}
+		p.task.Concurrent = int32(i)
+	case "Template":
+		p.task.Template = string(settingVal)
+	case "Prompt":
+		p.task.Prompt = string(settingVal)
+	case "Inventory":
+		p.task.Inventory = string(settingVal)
+	case "DefaultCommandBlock":
+		p.task.DefaultCommandBlock = string(settingVal)
+	default:
+		return fmt.Errorf("Invalid setting \"%s\". Line %d", setting, p.currentLine)
+	}
+	return nil
 }
 
 func (p *Parser) parseCommandBlockStart(cmd, opts []byte) error {
@@ -260,25 +240,12 @@ func (p *Parser) parseCommandBlockStart(cmd, opts []byte) error {
 				continue
 			}
 
-			taskReflect := reflect.ValueOf(p.task.Commands[name])
-			// struct
-			s := taskReflect.Elem()
-			// exported field
-			f := s.FieldByName(string(bytes.Title(parts[0])))
-			if f.IsValid() {
-				// A Value can be changed only if it is
-				// addressable and was not obtained by
-				// the use of unexported struct fields.
-				if f.CanSet() {
-					// change value of N
-					if f.Kind() == reflect.String {
-						if f.String() != "" {
-							return fmt.Errorf("Cannot redeclare setting '%s'. Line %d", parts[0], p.currentLine)
-						}
-						f.SetString(string(parts[1]))
-					}
-				}
-			} else {
+			switch string(bytes.Title(parts[0])) {
+			case "Name":
+				p.task.Commands[name].Name = string(parts[1])
+			case "Type":
+				p.task.Commands[name].Type = string(parts[1])
+			default:
 				return fmt.Errorf("Invalid block setting \"%s\". Line %d", parts[0], p.currentLine)
 			}
 		}
