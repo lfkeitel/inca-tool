@@ -103,4 +103,10 @@ expect {
 }
 set timeout $oldTimeout
 `,
+
+	// Set Cisco terminal length to 0
+	"cisco-show-all": `
+send "terminal length 0\n"
+expect "#"
+`,
 }

@@ -204,6 +204,8 @@ func (p *Parser) parseLine(line []byte) error {
 		p.task.Inventory = string(settingVal)
 	case "DefaultCommandBlock":
 		p.task.DefaultCommandBlock = string(settingVal)
+	case "Output":
+		p.task.Output = string(settingVal)
 	default:
 		return fmt.Errorf("Invalid setting \"%s\". Line %d", setting, p.currentLine)
 	}

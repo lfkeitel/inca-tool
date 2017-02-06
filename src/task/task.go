@@ -15,6 +15,7 @@ type Task struct {
 	Concurrent int32
 	Template   string
 	Prompt     string
+	Output     string
 
 	Inventory string
 	Devices   []string

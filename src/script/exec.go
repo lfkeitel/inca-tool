@@ -3,9 +3,12 @@ package script
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/lfkeitel/inca-tool/src/device"
 
@@ -39,10 +42,16 @@ func Execute(s *Script, hosts *device.DeviceList) error {
 	if s.dontProcess {
 		splitCmd := strings.SplitN(s.script, " ", 2)
 		fmt.Printf("Running script %s\n", splitCmd[0])
-		if len(splitCmd) == 1 {
-			return executeFile(splitCmd[0], "")
+		output := s.task.Output
+
+		if output != "" {
+			output = filepath.Join(output, time.Now().Format("20060102-15:04:05"), s.task.GetMetadata("name"), ".out")
 		}
-		return executeFile(splitCmd[0], splitCmd[1])
+
+		if len(splitCmd) == 1 {
+			return executeFile(splitCmd[0], "", output)
+		}
+		return executeFile(splitCmd[0], splitCmd[1], output)
 	}
 
 	// Wait group to enforce maximum concurrent hosts
@@ -74,17 +83,22 @@ func Execute(s *Script, hosts *device.DeviceList) error {
 
 		// The magic, set off a goroutine to execute the script
 		lg.Add(1)
-		go func(script, name, address string) {
+		go func(script, name, address, output string) {
 			defer func() {
 				lg.Done()
 			}()
-			executeFile(script, "")
+
+			if output != "" {
+				output = filepath.Join(output, time.Now().Format("20060102-15:04:05-")+name+".out")
+			}
+
+			executeFile(script, "", output)
 			fmt.Printf("Finished configuring host %s (%s)\n", name, address)
 			if !debug {
 				// Remove host specific script file
 				os.Remove(script)
 			}
-		}(hostScript, host.Name, vars["hostname"])
+		}(hostScript, host.Name, vars["hostname"], s.task.Output)
 		// Wait for the next available host execution slot
 		lg.Wait()
 	}
@@ -93,7 +107,7 @@ func Execute(s *Script, hosts *device.DeviceList) error {
 	return nil
 }
 
-func executeFile(sfn string, args string) error {
+func executeFile(sfn, args, outputFile string) error {
 	if dryRun {
 		return nil
 	}
@@ -110,6 +124,13 @@ func executeFile(sfn string, args string) error {
 			fmt.Println(out.String())
 		}
 		return err
+	}
+
+	fmt.Println(outputFile)
+	if outputFile != "" {
+		if err := ioutil.WriteFile(outputFile, out.Bytes(), 0644); err != nil {
+			fmt.Println(err.Error())
+		}
 	}
 	return nil
 }

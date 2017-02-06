@@ -72,6 +72,27 @@ func RunTask(t *task.Task) {
 		return
 	}
 
+	// Check output directory if set
+	if t.Output != "" {
+		out, err := os.Stat(t.Output)
+		if err == nil && !out.IsDir() {
+			fmt.Printf("Output %s is not a directory.", t.Output)
+			return
+		}
+		if err != nil {
+			if os.IsNotExist(err) {
+				if err := os.MkdirAll(t.Output, 0755); err != nil {
+					fmt.Printf("Output directory %s doesn't exist and couldn't be created.\n", t.Output)
+					return
+				}
+				err = nil
+			} else {
+				fmt.Println(err.Error())
+				return
+			}
+		}
+	}
+
 	// Create a script based on the task
 	taskScript, err := script.GenerateScript(t)
 	if err != nil {

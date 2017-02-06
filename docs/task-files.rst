@@ -95,17 +95,23 @@ There are a couple of settings that affect how templates are generated and ran.
     - Description:
         - The template to use when generating a job file.
 - prompt
-    - Type key-value string
+    - Type: key-value string
     - Default: #
     - Valid values: Any string
     - Description:
         - The unique part of a prompt to wait for when using Expect.
 - default command block
-    - Type key-value string
+    - Type: key-value string
     - Default: Empty string
     - Valid values: Any command block name
     - Description:
         - This controls which command block acts as the entry point into the task. By default a nameless block will be used. Generally this setting should be used but is made available for customization.
+- output
+    - Type: key-value string
+    - Default: Empty string
+    - Valid values: Directory path
+    - Description:
+        - This is the directory where stdout from commands are written. A file is created for each host with a timestamp. This path must be a directory. If it doesn't exist, it will be created.
 
 Inventory
 ~~~~~~~~~
