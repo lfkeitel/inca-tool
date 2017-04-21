@@ -87,6 +87,7 @@ func main() {
 			manager.ValidateTaskFile(file)
 		}
 	} else if command == "version" { // Show version info
+		printHeader()
 		os.Exit(0)
 	} else if command == "help" { // Show help info
 		printUsage()
