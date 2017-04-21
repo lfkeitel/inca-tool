@@ -28,9 +28,9 @@ func (v varSlice) Set(value string) error {
 		return nil
 	}
 
-	vars := strings.Split(value, ";")
+	vars := strings.Split(value, ",")
 	for _, val := range vars {
-		sVar := strings.Split(val, ":")
+		sVar := strings.Split(val, "=")
 		if len(sVar) != 2 {
 			return fmt.Errorf("No value given for %s", val)
 		}
@@ -115,12 +115,14 @@ There is NO WARRANTY, to the extent permitted by law.
 }
 
 func printUsage() {
-	fmt.Printf(`Usage: %s [options] [command] [task1 [task2 [task3]...]]
+	fmt.Printf(`Usage: %s [options] [command] taskfiles...
 
 Options:
 	-d Enable debug output and functions
 	-r Perform a dry run and list the affected hosts
 	-v Enable verbose output
+	-i Specify an inventory file to use, if a task file specifies a file, this setting will override it
+	-var Comma separated list of variables used in task files. E.g: "VAR1=value, VAR2=value2"
 
 Commands:
 	run Run the given task files
@@ -154,7 +156,7 @@ func runCmd(filepaths []string) {
 		}
 		// Set default if empty
 		if task.Inventory == "" {
-			task.Inventory = "inventory"
+			task.Inventory = "devices.conf"
 		}
 
 		// Set variables given in the command line into the task

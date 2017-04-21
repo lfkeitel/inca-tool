@@ -105,7 +105,7 @@ There are a couple of settings that affect how templates are generated and ran.
     - Default: Empty string
     - Valid values: Any command block name
     - Description:
-        - This controls which command block acts as the entry point into the task. By default a nameless block will be used. Generally this setting should be used but is made available for customization.
+        - This controls which command block acts as the entry point into the task. By default a nameless block will be used. Generally this setting shouldn't be used but is made available for customization.
 - output
     - Type: key-value string
     - Default: Empty string
@@ -160,7 +160,7 @@ Special Command Syntax
 There are a few special command prefixes that change how the command block is parsed and even how the job is ran.
 
 - ``_c foobar`` - Inline a command block named foobar
-- ``_s foobar.sh -a arg1 arg2`` - Immediately execute the file named foobar.sh. This stops all parsing and immediately executes the file. When the file is done executing, the job is complete. All other command lines are ignored. The file is executed once, not per device.
+- ``_s foobar.sh arg1 arg2`` - Immediately execute the file named foobar.sh. This stops all parsing and immediately executes the file. When the file is done executing, the job is complete. All other command lines are ignored. The file is executed once, not per device.
 - ``_b foo`` - This functions the same as ``_c`` but can only be used with builtin command block. Inca Tool has a few builtin command blocks for common functions on Juniper and Cisco devices. A list of block names can be found below.
 
 Builtin Command Blocks
@@ -190,5 +190,6 @@ This is a minimal example that uses all the default settings and adds remote log
 
     commands: main
         _b cisco-enable-mode
+        conf t
         set logging 10.0.0.1
         _b cisco-end-wrmem
